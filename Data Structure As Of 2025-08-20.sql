@@ -1,0 +1,846 @@
+--CREATE TABLE personnel(
+--usma_pers_id VARCHAR(9) PRIMARY KEY,
+--last_name VARCHAR(255) NOT NULL,
+--first_name VARCHAR (255) NOT NULL,
+--middle_name VARCHAR (255),
+--pers_type VARCHAR (255) NOT NULL,
+--sex CHAR (1) NOT NULL,
+--wp_email VARCHAR (255) UNIQUE,
+--perm_email VARCHAR (255),
+--CONSTRAINT pers_type_check CHECK (pers_type IN ('CADET', 'FACULTY')),
+--CONSTRAINT perm_email_check CHECK (perm_email LIKE '%@%'));
+
+--CREATE TABLE faculty (
+--usma_pers_id VARCHAR(9) PRIMARY KEY,
+--service VARCHAR(255) NOT NULL,
+--cell_num CHAR(10),
+--birthday DATE,
+--CONSTRAINT service_check CHECK (service IN ('ARMY', 'NAVY', 'AIR FORCE', 'MARINE CORPS', 'COAST GUARD', 'SPACE FORCE', 'CIVILIAN')),
+--CONSTRAINT cell_num_check CHECK (LEN(cell_num) = 10),
+--CONSTRAINT cell_num_char_check CHECK (cell_num LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+--FOREIGN KEY (usma_pers_id) REFERENCES personnel (usma_pers_id));
+
+--CREATE TABLE lookup_com_source(
+--com_source VARCHAR(255) PRIMARY KEY);
+
+--CREATE TABLE commission (
+--usma_pers_id VARCHAR(9) PRIMARY KEY,
+--year_group SMALLINT NOT NULL,
+--com_source VARCHAR(255) NOT NULL,
+--CONSTRAINT year_group_check CHECK (year_group >1979 AND year_group <2100),
+--FOREIGN KEY(usma_pers_id) REFERENCES faculty(usma_pers_id),
+--FOREIGN KEY(com_source) REFERENCES lookup_com_source(com_source));
+
+--CREATE TABLE spouse (
+--usma_pers_id VARCHAR(9) PRIMARY KEY,
+--sp_name VARCHAR (255) NOT NULL,
+--sp_email VARCHAR (255), 
+--sp_cell_num CHAR(10),
+--CONSTRAINT sp_cell_num_check CHECK (LEN(sp_cell_num) = 10),
+--CONSTRAINT sp_cell_num_char_check CHECK (sp_cell_num LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+--FOREIGN KEY (usma_pers_id) REFERENCES faculty (usma_pers_id));
+
+--CREATE TABLE child (
+--child_id INT IDENTITY(1,1) PRIMARY KEY,
+--usma_pers_id VARCHAR(9),
+--child_name VARCHAR (255) NOT NULL,
+--child_birthday DATE,
+--UNIQUE (usma_pers_id, child_name),
+--FOREIGN KEY (usma_pers_id) REFERENCES faculty (usma_pers_id));
+
+--CREATE TABLE lookup_degree(
+--degree_abbrev VARCHAR(255) PRIMARY KEY,
+--degree_type VARCHAR(255) NOT NULL UNIQUE);
+
+--CREATE TABLE degrees (
+--degree_id INT IDENTITY(1,1) PRIMARY KEY,
+--usma_pers_id VARCHAR(9) NOT NULL,
+--degree_abbrev VARCHAR (255) NOT NULL,
+--degree_year SMALLINT NOT NULL,
+--degree_name VARCHAR (255) NOT NULL,
+--degree_school VARCHAR (255) NOT NULL,
+--UNIQUE (usma_pers_id, degree_year, degree_name),
+--CONSTRAINT degree_year_check CHECK (degree_year > 1950 AND degree_year < 2100),
+--FOREIGN KEY(usma_pers_id) REFERENCES faculty (usma_pers_id),
+--FOREIGN KEY(degree_abbrev) REFERENCES lookup_degree(degree_abbrev));
+
+--CREATE TABLE lookup_assign_type (
+--assign_type VARCHAR (255) PRIMARY KEY);
+
+--CREATE TABLE lookup_rank (
+--rank_title VARCHAR (255) PRIMARY KEY);
+
+--CREATE TABLE lookup_acad_rank (
+--acad_rank VARCHAR (255) PRIMARY KEY);
+
+--CREATE TABLE tours (
+--tour_id INT IDENTITY(1,1) PRIMARY KEY,
+--usma_pers_id VARCHAR(9) NOT NULL,
+--assign_type VARCHAR(255) NOT NULL,
+--arrival_date DATE NOT NULL,
+--depart_date DATE,
+--rank_title VARCHAR(255) NOT NULL,
+--date_of_rank DATE,
+--acad_rank VARCHAR(255) NOT NULL,
+--office VARCHAR (255) NOT NULL,
+--office_phone CHAR(10),
+--address VARCHAR (255),
+--city VARCHAR (255),
+--state CHAR (2),
+--zip_code CHAR(5),
+--UNIQUE (usma_pers_id, arrival_date),
+--FOREIGN KEY (usma_pers_id) REFERENCES faculty (usma_pers_id),
+--FOREIGN KEY (assign_type) REFERENCES lookup_assign_type (assign_type),
+--FOREIGN KEY (rank_title) REFERENCES lookup_rank (rank_title),
+--FOREIGN KEY (acad_rank) REFERENCES lookup_acad_rank (acad_rank),
+--CONSTRAINT office_phone_check CHECK (office_phone LIKE '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+--CONSTRAINT zip_code_check CHECK (zip_code LIKE '[0-9][0-9][0-9][0-9][0-9]'));
+
+--CREATE TABLE program_pos (
+--program_pos_id INT IDENTITY(1,1) PRIMARY KEY,
+--pos_title VARCHAR(255) NOT NULL,
+--name_program VARCHAR(255) NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--UNIQUE (pos_title, name_program, tour_id),
+--CONSTRAINT pos_title_check CHECK (pos_title IN ('PD', 'APD')),
+--CONSTRAINT program_name_check2 CHECK (name_program IN ('MATHEMATICAL SCIENCES CENTER', 
+--'OPERATIONS RESEARCH', 'APPLIED SYSTEMS AND DATA SCIENCE', 'RESEARCH')),
+--FOREIGN KEY(tour_id) REFERENCES tours(tour_id));
+
+--CREATE TABLE lookup_classes (
+--class_num VARCHAR (255) PRIMARY KEY,
+--class_name VARCHAR (255) NOT NULL,
+--credit_hours DECIMAL (2,1),
+--UNIQUE (class_num, class_name));
+
+--CREATE TABLE lookup_class_offerings (
+--offering_id INT IDENTITY(1,1) PRIMARY KEY,
+--ay SMALLINT NOT NULL,
+--semester TINYINT NOT NULL,
+--class_num VARCHAR (255) NOT NULL,
+--apd INT, 
+--UNIQUE (ay, semester, class_num),
+--CONSTRAINT ay_check CHECK (ay > 2000 AND ay < 2100),
+--CONSTRAINT semester_check CHECK (semester >= 0 AND semester <= 9),
+--FOREIGN KEY (class_num) REFERENCES lookup_classes (class_num),
+--FOREIGN KEY (apd) REFERENCES program_pos (program_pos_id));
+
+--CREATE TABLE sections (
+--section_id INT IDENTITY(1,1) PRIMARY KEY,
+--tour_id INT NOT NULL,
+--offering_id INT NOT NULL,
+--section_num SMALLINT NOT NULL,
+--section_size TINYINT,
+--class_hour VARCHAR(255) NOT NULL,
+--class_room VARCHAR (255),
+--UNIQUE (tour_id, offering_id, class_hour, section_num),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id),
+--FOREIGN KEY (offering_id) REFERENCES lookup_class_offerings (offering_id));
+
+--CREATE TABLE leave_pass (
+--leave_id INT IDENTITY(1,1) PRIMARY KEY,
+--tour_id INT NOT NULL,
+--leave_type VARCHAR(255) NOT NULL,
+--leave_start DATE NOT NULL,
+--leave_end DATE NOT NULL,
+--leave_country VARCHAR (255) DEFAULT 'USA',
+--missing_class VARCHAR (255) NOT NULL,
+--UNIQUE (tour_id, leave_start),
+--CONSTRAINT missing_class_check CHECK (missing_class IN ('Yes', 'No', 'Rearranged Drops')),
+--CONSTRAINT leave_type_check CHECK (leave_type IN ('Parental', 'Convalescent', 'PCS', 'Retirement', 'Sick', 'Ordinary', 'Pass', 'Emergency')),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id));
+
+--CREATE TABLE classes_missed_lv (
+--leave_id INT NOT NULL,
+--section_id INT NOT NULL,
+--missed_date DATE NOT NULL,
+--covering_fac INT NOT NULL,
+--FOREIGN KEY (leave_id) REFERENCES leave_pass (leave_id),
+--FOREIGN KEY (section_id) REFERENCES sections (section_id),
+--FOREIGN KEY (covering_fac) REFERENCES tours (tour_id));
+
+--CREATE TABLE lookup_fa (
+--func_num CHAR(5) PRIMARY KEY,
+--func_name VARCHAR (255) UNIQUE);
+
+--CREATE TABLE officer_fa (
+--tour_id INT PRIMARY KEY,
+--func_num CHAR(5) NOT NULL,
+--updated_on DATE DEFAULT (GETDATE()),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id),
+--FOREIGN KEY (func_num) REFERENCES lookup_fa (func_num));
+
+--CREATE TABLE lookup_br (
+--br_abbrev CHAR(255) PRIMARY KEY,
+--br_name VARCHAR(255) UNIQUE);
+
+--CREATE TABLE officer_br (
+--tour_id INT PRIMARY KEY,
+--br_abbrev CHAR(255) NOT NULL,
+--updated_on DATE DEFAULT (GETDATE()),
+--FOREIGN KEY (br_abbrev) REFERENCES lookup_br (br_abbrev),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id));
+
+--CREATE TABLE employer (
+--tour_id INT NOT NULL,
+--employer_name VARCHAR (255) NOT NULL,
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id));
+
+--CREATE TABLE mil_eval_info (
+--tour_id INT PRIMARY KEY,
+--acs_start_date DATE,
+--acs_end_date DATE,
+--last_oer_thru_date DATE NOT NULL,
+--last_aer_thru_date DATE,
+--date_aer_submitted DATE,
+--date_pcs_started DATE,
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id));
+
+--CREATE TABLE lookup_center (
+--center_id TINYINT IDENTITY(1,1) PRIMARY KEY,
+--center_abbrev VARCHAR (255) UNIQUE NOT NULL,
+--center_name VARCHAR (255) UNIQUE NOT NULL,
+--center_type VARCHAR(255) NOT NULL,
+--CONSTRAINT center_type_check CHECK (center_type IN ('CENTER', 'PROGRAM', 'ADMIN')));
+
+--CREATE TABLE center_pos (
+--center_pos_id INT IDENTITY(1,1) PRIMARY KEY,
+--pos_title VARCHAR(255) NOT NULL,
+--center_id TINYINT NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT center_pos_check CHECK (pos_title IN ('Director', 'Deputy')),
+--FOREIGN KEY (center_id) REFERENCES lookup_center (center_id),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id),
+--UNIQUE(pos_title, center_id, tour_id));
+
+--CREATE TABLE lookup_committee (
+--committee_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--committee_name VARCHAR (255) UNIQUE,
+--committee_echelon VARCHAR (255) NOT NULL,
+--CONSTRAINT echelon_check CHECK (committee_echelon IN ('USMA', 'MATH')));
+
+--CREATE TABLE additional_duty (
+--committee_pos_id INT IDENTITY(1,1) PRIMARY KEY,
+--add_duty VARCHAR (255) NOT NULL,
+--committee_id SMALLINT NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (committee_id) REFERENCES lookup_committee (committee_id),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id),
+--UNIQUE (add_duty, committee_id, tour_id));
+
+--CREATE TABLE course_pos (
+--course_pos_id INT IDENTITY(1,1) PRIMARY KEY,
+--class_num VARCHAR(255) NOT NULL,
+--pos_title VARCHAR (255) NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (class_num) REFERENCES lookup_classes (class_num),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id),
+--UNIQUE (class_num, pos_title, tour_id));
+
+--CREATE TABLE cadets (
+--usma_pers_id VARCHAR(9) PRIMARY KEY,
+--grad_year SMALLINT NOT NULL,
+--grad_status VARCHAR(9) NOT NULL,
+--CONSTRAINT grad_year_check CHECK (grad_year > 2020 AND grad_year < 2100),
+--CONSTRAINT grad_status_check CHECK (grad_status IN ('Cadet', 'Graduated', 'Separated')),
+--FOREIGN KEY (usma_pers_id) REFERENCES personnel (usma_pers_id));
+
+--CREATE TABLE prospective_fac (
+--usma_pers_id VARCHAR(9) PRIMARY KEY,
+--ranking TINYINT NOT NULL,
+--notes VARCHAR (255),
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (usma_pers_id) REFERENCES cadets (usma_pers_id));
+
+--CREATE TABLE lookup_major (
+--major_code VARCHAR (5) PRIMARY KEY,
+--major_name VARCHAR (100) NOT NULL,
+--dept_code CHAR (12) NOT NULL,
+--dept_name VARCHAR (100) NOT NULL);
+
+--CREATE TABLE majors(
+--major_id INT IDENTITY(1,1) PRIMARY KEY,
+--usma_pers_id VARCHAR(9) NOT NULL,
+--major_code VARCHAR(5) NOT NULL,
+--FOREIGN KEY(usma_pers_id) REFERENCES cadets(usma_pers_id),
+--FOREIGN KEY(major_code) REFERENCES lookup_major (major_code),
+--UNIQUE(usma_pers_id, major_code));
+
+--CREATE TABLE lookup_awards(
+--award_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--award_name VARCHAR(255) NOT NULL,
+--award_type VARCHAR(255) NOT NULL,
+--program_abbrev VARCHAR(255),
+--class_num VARCHAR(255),
+--CONSTRAINT award_type_check CHECK (award_type IN ('SCHOLARSHIP', 'TOP GUN', 'HONOR SOCIETY', 'OTHER')),
+--FOREIGN KEY(class_num) REFERENCES lookup_classes(class_num));
+
+--CREATE TABLE cadet_awards(
+--cadet_award_id INT IDENTITY(1,1) PRIMARY KEY,
+--usma_pers_id VARCHAR(9) NOT NULL,
+--award_id SMALLINT NOT NULL,
+--award_year SMALLINT NOT NULL,
+--CONSTRAINT award_year_check CHECK (award_year > 1999 AND award_year < 2100),
+--FOREIGN KEY(usma_pers_id) REFERENCES cadets(usma_pers_id),
+--FOREIGN KEY(award_id) REFERENCES lookup_awards (award_id));
+
+--CREATE TABLE projects (
+--project_id INT IDENTITY(1,1) PRIMARY KEY,
+--project_title VARCHAR(500) NOT NULL UNIQUE,
+--project_desc VARCHAR(500),
+--updated_on DATE DEFAULT GETDATE());
+
+--CREATE TABLE project_pictures (
+--project_picture_id INT IDENTITY(1,1) PRIMARY KEY,
+--project_id INT NOT NULL,
+--picture_link VARCHAR(500) NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (project_id) REFERENCES projects(project_id));
+
+--CREATE TABLE lookup_topic_methods (
+--topic_method_id TINYINT IDENTITY(1,1) PRIMARY KEY,
+--topic_method VARCHAR(255) UNIQUE);
+
+--CREATE TABLE project_tags (
+--tag_id INT IDENTITY(1,1) PRIMARY KEY,
+--project_id INT NOT NULL,
+--topic_method_id TINYINT NOT NULL,
+--UNIQUE (project_id, topic_method_id),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id),
+--FOREIGN KEY (topic_method_id) REFERENCES lookup_topic_methods (topic_method_id));
+
+--CREATE TABLE project_cadet (
+--project_cadet_id INT IDENTITY(1,1) PRIMARY KEY,
+--project_id INT NOT NULL,
+--usma_pers_id VARCHAR(9) NOT NULL,
+--offering_id INT,
+--project_status VARCHAR(255) NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--UNIQUE (project_id, usma_pers_id),
+--CONSTRAINT project_status_check CHECK (project_status IN ('ACTIVE', 'COMPLETE', 'DROPPED')),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id),
+--FOREIGN KEY (usma_pers_id) REFERENCES cadets (usma_pers_id),
+--FOREIGN KEY (offering_id) REFERENCES lookup_class_offerings (offering_id));
+
+--CREATE TABLE project_awards (
+--project_award_id INT IDENTITY(1,1) PRIMARY KEY,
+--project_id INT NOT NULL,
+--project_cadet_id INT NOT NULL,
+--award_name VARCHAR(255) NOT NULL,
+--signed_up VARCHAR(255),
+--won VARCHAR(255),
+--updated_on DATE DEFAULT GETDATE(),
+--UNIQUE (project_cadet_id, award_name),
+--CONSTRAINT award_name_check CHECK 
+--	(award_name IN ('HOLLIS AWARD', 'CLARK AWARD', 'DEAN''S INTER-DEPARTMENTAL PROJECT AWARD', 'WISE CHALLENGE')),
+--CONSTRAINT award_signed_up_check CHECK (signed_up IN ('YES', 'NO')),
+--CONSTRAINT award_won_check CHECK (won IN ('YES', 'NO')),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id),
+--FOREIGN KEY (project_cadet_id) REFERENCES project_cadet (project_cadet_id));
+
+--CREATE TABLE lookup_pub_types (
+--pub_type_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--pub_type VARCHAR(255) UNIQUE);
+
+--CREATE TABLE lookup_pub_venues (
+--venue_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--venue_abbrev VARCHAR(255) NOT NULL,
+--venue_name VARCHAR(255)NOT NULL);
+
+--CREATE TABLE publications (
+--cadet_pub_id INT IDENTITY(1,1) PRIMARY KEY,
+--venue_id SMALLINT,
+--pub_type_id SMALLINT,
+--project_cadet_id INT NOT NULL,
+--pub_title VARCHAR(255),
+--signed_up VARCHAR(255),
+--pub_date DATE,
+--pub_link VARCHAR(500),
+--updated_on DATE DEFAULT GETDATE(),
+--UNIQUE(project_cadet_id, pub_type_id, venue_id, pub_date),
+--CONSTRAINT signed_up_check2 CHECK (signed_up IN ('YES', 'NO')),
+--FOREIGN KEY (venue_id) REFERENCES lookup_pub_venues (venue_id),
+--FOREIGN KEY (pub_type_id) REFERENCES lookup_pub_types (pub_type_id),
+--FOREIGN KEY (project_cadet_id) REFERENCES project_cadet (project_cadet_id));
+
+--CREATE TABLE project_fac (
+--project_fac_id INT IDENTITY(1,1) PRIMARY KEY,
+--project_id INT NOT NULL,
+--tour_id INT NOT NULL,
+--role VARCHAR(255) NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--UNIQUE (project_id, tour_id),
+--CONSTRAINT role_check CHECK (role IN ('ADVISOR', 'CO-ADVISOR')),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id));
+
+--CREATE TABLE lookup_priority (
+--priority_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--priority_name VARCHAR (255),
+--priority_num TINYINT NOT NULL,
+--ay SMALLINT NOT NULL,
+--proponent_name VARCHAR (255) NOT NULL,
+--CONSTRAINT priority_ay_check CHECK (ay > 2020 AND ay < 2100),
+--UNIQUE(priority_num, ay, proponent_name));
+
+--CREATE TABLE priorities (
+--project_priority_id INT IDENTITY(1,1) PRIMARY KEY,
+--priority_id SMALLINT NOT NULL,
+--project_id INT NOT NULL,
+--UNIQUE (priority_id, project_id),
+--FOREIGN KEY (priority_id) REFERENCES lookup_priority (priority_id),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id));
+
+--CREATE TABLE center_sponsors (
+--center_sponsor_id INT IDENTITY(1,1) PRIMARY KEY,
+--center_id TINYINT NOT NULL,
+--project_id INT NOT NULL,
+--UNIQUE(center_id, project_id),
+--FOREIGN KEY (center_id) REFERENCES lookup_center (center_id),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id));
+
+--CREATE TABLE lookup_orgs (
+--org_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--org_name VARCHAR(255) NOT NULL UNIQUE,
+--org_abbrev VARCHAR(255) NOT NULL,
+--org_type VARCHAR(255) NOT NULL,
+--org_city VARCHAR (255) NOT NULL,
+--org_state VARCHAR(255) NOT NULL,
+--org_country VARCHAR(255) NOT NULL DEFAULT 'USA',
+--parent_org_id SMALLINT,
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT org_type_check CHECK (org_type IN ('MILITARY', 'CORPORATION', 'ACADEMIA', 'GOVERNMENT', 'FEDERALLY FUNDED R&D CENTER')),
+--FOREIGN KEY(parent_org_id) REFERENCES lookup_orgs(org_id));
+
+--CREATE TABLE tbl_dean_or_funding_partners(
+--funding_partner VARCHAR(255),
+--funding_partner_descr VARCHAR(1000),
+--funding_agency_id VARCHAR(255),
+--funding_partner_category VARCHAR(255),
+--funding_partner_img VARCHAR(1000),
+--partner_id INT NOT NULL,
+--partner_city VARCHAR(255),
+--partner_state VARCHAR(255),
+--partner_country VARCHAR(255),
+--partner_zip VARCHAR(100),
+--parent_org VARCHAR(255));
+
+--CREATE TABLE lookup_sponsors_collaborators (
+--spon_collab_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--spon_collab_email VARCHAR(255) UNIQUE,
+--spon_collab_last_name VARCHAR(255) NOT NULL,
+--spon_collab_first_name VARCHAR(255) NOT NULL,
+--org_id SMALLINT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (org_id) REFERENCES lookup_orgs (org_id));
+
+--CREATE TABLE project_collaborators (
+--project_collaborator_id INT IDENTITY(1,1) PRIMARY KEY,
+--spon_collab_id SMALLINT NOT NULL,
+--project_id INT NOT NULL,
+--UNIQUE(spon_collab_id, project_id),
+--FOREIGN KEY (spon_collab_id) REFERENCES lookup_sponsors_collaborators (spon_collab_id),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id));
+
+--CREATE TABLE project_sponsors (
+--project_sponsor_id INT IDENTITY(1,1) PRIMARY KEY,
+--spon_collab_id SMALLINT NOT NULL,
+--project_id INT NOT NULL,
+--UNIQUE(spon_collab_id, project_id),
+--FOREIGN KEY (spon_collab_id) REFERENCES lookup_sponsors_collaborators (spon_collab_id),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id));
+
+--CREATE TABLE lookup_budget_type(
+--budget_type VARCHAR(255) PRIMARY KEY);
+
+--CREATE TABLE lookup_funding_type(
+--funding_type VARCHAR(255) PRIMARY KEY);
+
+--CREATE TABLE budgets (
+--budget_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--budget_name VARCHAR (255) UNIQUE,
+--budget_type VARCHAR (255) NOT NULL,
+--funding_type VARCHAR (255) NOT NULL,
+--loa VARCHAR (255),
+--mipr_num VARCHAR(255),
+--wbs_cost_center VARCHAR (255) NOT NULL,
+--total_amount DECIMAL(9,2) NOT NULL,
+--received_date DATE NOT NULL,
+--expire_date DATE NOT NULL,
+--pop_date DATE NOT NULL,
+--center_id TINYINT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT funding_type_check CHECK (funding_type IN ('ECONOMY ACT', 'PROJECT ORDER', 'GRANT', 'CRADA', 'N/A')),
+--CONSTRAINT total_amount_check CHECK (total_amount >= 0),
+--FOREIGN KEY (budget_type) REFERENCES lookup_budget_type (budget_type),
+--FOREIGN KEY (funding_type) REFERENCES lookup_funding_type (funding_type),
+--FOREIGN KEY (center_id) REFERENCES lookup_center (center_id));
+
+--CREATE TABLE budget_notes(
+--budget_note_id INT IDENTITY(1,1) PRIMARY KEY,
+--budget_id SMALLINT NOT NULL,
+--notes VARCHAR (255) NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE NOT NULL,
+--FOREIGN KEY (budget_id) REFERENCES budgets (budget_id),
+--FOREIGN KEY (tour_id) REFERENCES tours(tour_id));
+
+--CREATE TABLE budget_sponsors(
+--budget_sponsor_id INT IDENTITY(1,1) PRIMARY KEY,
+--spon_collab_id SMALLINT NOT NULL,
+--budget_id SMALLINT NOT NULL,
+--FOREIGN KEY (spon_collab_id) REFERENCES lookup_sponsors_collaborators (spon_collab_id),
+--FOREIGN KEY (budget_id) REFERENCES budgets (budget_id));
+
+--CREATE TABLE lookup_cost_status(
+--cost_status VARCHAR(255) PRIMARY KEY);
+
+--CREATE TABLE add_deposits(
+--deposit_id INT IDENTITY(1,1) PRIMARY KEY,
+--cntrl_num VARCHAR(255) UNIQUE NOT NULL,
+--budget_id SMALLINT NOT NULL,
+--deposit_amount DECIMAL(9,2) NOT NULL,
+--deposit_date DATE NOT NULL,
+--notes VARCHAR(255),
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT deposit_amount_check CHECK (deposit_amount >=0),
+--FOREIGN KEY(budget_id) REFERENCES budgets(budget_id));
+
+--CREATE TABLE fee_costs(
+--fee_id INT IDENTITY(1,1) PRIMARY KEY,
+--cntrl_num VARCHAR(255) UNIQUE NOT NULL,
+--budget_id SMALLINT NOT NULL,
+--fee_cost DECIMAL(9,2) NOT NULL,
+--spend_date DATE NOT NULL,
+--notes VARCHAR(255),
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT fee_cost_check CHECK (fee_cost <= 0),
+--FOREIGN KEY(budget_id) REFERENCES budgets(budget_id));
+
+--CREATE TABLE spend_plan(
+--spend_plan_id INT IDENTITY(1,1) PRIMARY KEY, 
+--budget_id SMALLINT NOT NULL,
+--fee_amount DECIMAL(9,2) NOT NULL DEFAULT 0,
+--print_amount DECIMAL(9,2) NOT NULL DEFAULT 0,
+--salary_amount DECIMAL(9,2) NOT NULL DEFAULT 0,
+--supply_amount DECIMAL(9,2) NOT NULL DEFAULT 0,
+--travel_amount DECIMAL(9,2) NOT NULL DEFAULT 0,
+--gift_amount DECIMAL(9,2) NOT NULL DEFAULT 0,
+--total_amount DECIMAL(9,2) NOT NULL,
+--updated_on DATE DEFAULT (GETDATE()),
+--CONSTRAINT amount_checks2 CHECK (fee_amount >= 0 AND print_amount >= 0 AND salary_amount >= 0 AND supply_amount >= 0 AND travel_amount >= 0 AND gift_amount >= 0),
+--CONSTRAINT total_amount_check2 CHECK (total_amount = fee_amount + salary_amount + supply_amount + travel_amount + gift_amount + print_amount),
+--FOREIGN KEY(budget_id) REFERENCES budgets(budget_id));
+
+--CREATE TABLE salary_costs (
+--salary_cost_id INT IDENTITY(1,1) PRIMARY KEY,
+--budget_id SMALLINT, 
+--cntrl_num VARCHAR(255),
+--tour_id INT,
+--last_name VARCHAR(255), 
+--first_name VARCHAR(255),
+--step VARCHAR(255),
+--salary_complete VARCHAR(3) NOT NULL DEFAULT 'NO',
+--salary_start_date DATE NOT NULL,
+--salary_end_date DATE NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--UNIQUE(tour_id, last_name, first_name, salary_start_date, salary_end_date),
+--CONSTRAINT salary_complete_check CHECK (salary_complete IN ('YES', 'NO')),
+--CONSTRAINT salary_date_check CHECK (salary_start_date <= salary_end_date),
+--FOREIGN KEY(budget_id) REFERENCES budgets(budget_id),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id));
+
+--CREATE TABLE lookup_pay_periods (
+--pay_period_id INT IDENTITY(1,1) PRIMARY KEY,
+--pay_period TINYINT NOT NULL,
+--start_date DATE NOT NULL,
+--end_date DATE NOT NULL,
+--CONSTRAINT pay_period_check_2 CHECK (pay_period > 0 AND pay_period < 28));
+
+--CREATE TABLE pay_period_costs (
+--pay_period_cost_id INT IDENTITY(1,1) PRIMARY KEY,
+--salary_cost_id INT NOT NULL,
+--pay_period_id INT --NOT NULL,
+--projected_amount DECIMAL(9,2),
+--disbursed_amount DECIMAL(9,2),
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT projected_amount_check CHECK (projected_amount <=0),
+--CONSTRAINT disbursed_amount_check CHECK (disbursed_amount <=0),
+--FOREIGN KEY(salary_cost_id) REFERENCES salary_costs(salary_cost_id));
+
+--CREATE TABLE salary_cost_notes (
+--salary_note_id INT IDENTITY(1,1) PRIMARY KEY,
+--salary_cost_id INT NOT NULL,
+--notes VARCHAR (255) NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (salary_cost_id) REFERENCES salary_costs(salary_cost_id),
+--FOREIGN KEY(tour_id) REFERENCES tours(tour_id)); 
+
+--CREATE TABLE add_salary_costs(
+--add_salary_id SMALLINT IDENTITY(1,1) PRIMARY KEY,
+--cntrl_num VARCHAR(255),
+--budget_id SMALLINT,
+--tour_id INT NOT NULL,
+--projected_amount DECIMAL(9,2), 
+--disbursed_amount DECIMAL(9,2),
+--spend_date DATE,
+--purpose VARCHAR(255) NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT projected_amount_check_2 CHECK (projected_amount <= 0),
+--CONSTRAINT disbursed_amount_check_2 CHECK (disbursed_amount <= 0),
+--CONSTRAINT salary_complete_check_2 CHECK (salary_complete IN ('YES', 'NO')),
+--FOREIGN KEY (budget_id) REFERENCES budgets (budget_id),
+--FOREIGN KEY (tour_id) REFERENCES tours (tour_id));
+
+--CREATE TABLE lookup_purchase_types(
+--purchase_type VARCHAR(255) PRIMARY KEY,
+--special_instructions VARCHAR(1000));
+
+--CREATE TABLE lookup_purchase_screening(
+--method_id TINYINT IDENTITY(1,1) PRIMARY KEY,
+--method VARCHAR(150));
+
+--CREATE TABLE purchase_costs (
+--purchase_cost_id INT IDENTITY(1,1) PRIMARY KEY,
+--cntrl_num VARCHAR(255),
+--budget_id SMALLINT,
+--budget_assigned_by INT,
+--invoice_num VARCHAR(255),
+--purpose VARCHAR(255),
+--vendor_name VARCHAR(255),
+--items_cost DECIMAL(9,2) NOT NULL,
+--shipping_cost DECIMAL(9,2) NOT NULL,
+--purchase_cost DECIMAL(9,2) NOT NULL,
+--purchase_category VARCHAR(255) NOT NULL,
+--purchase_type VARCHAR(255) NOT NULL,
+--purchase_cost_status VARCHAR(255) NOT NULL,
+--date_ordered DATE,
+--gfebs_pr_num CHAR(10),
+--cardholder INT,
+--date_received DATE,
+--certified_fund_date DATE,
+--requestor_tour,
+--recipient_tour,
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT items_cost_check2 CHECK (items_cost <= 0),
+--CONSTRAINT shipping_cost_check2 CHECK (shipping_cost <= 0),
+--CONSTRAINT purchase_cost_check2 CHECK (purchase_cost <= 0),
+--CONSTRAINT purchase_category_check2 CHECK (purchase_category IN ('SUPPLY', 'PRINT')),
+--FOREIGN KEY(budget_id) REFERENCES budgets(budget_id),
+--FOREIGN KEY(budget_assigned_by) REFERENCES tours(tour_id),
+--FOREIGN KEY(purchase_type) REFERENCES lookup_purchase_types(purchase_type),
+--FOREIGN KEY(purchase_cost_status) REFERENCES lookup_cost_status(cost_status),
+--FOREIGN KEY(cardholder) REFERENCES tours(tour_id),
+--FOREIGN KEY(recipient_tour) REFERENCES tours(tour_id),
+--FOREIGN KEY(requestor_tour) REFERENCES tours(tour_id));
+
+--CREATE TABLE purchase_items (
+--purchase_item_id INT IDENTITY(1,1) PRIMARY KEY,
+--purchase_cost_id INT NOT NULL,
+--item_desc VARCHAR(255),
+--part_num VARCHAR(255),
+--quantity SMALLINT,
+--unit_price DECIMAL(13,6),
+--total_cost DECIMAL(9,2),
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT quantity_check1 CHECK (quantity >= 0),
+--CONSTRAINT unit_price_check1 CHECK (unit_price <= 0),
+--CONSTRAINT total_cost_check1 CHECK (total_cost = ROUND(quantity * unit_price,2)),
+--FOREIGN KEY(purchase_cost_id) REFERENCES purchase_costs(purchase_cost_id));
+
+--CREATE TABLE purchase_cost_notes (
+--purchase_note_id INT IDENTITY(1,1) PRIMARY KEY,
+--purchase_cost_id INT NOT NULL,
+--notes VARCHAR (255) NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (purchase_cost_id) REFERENCES purchase_costs (purchase_cost_id),
+--FOREIGN KEY(tour_id) REFERENCES tours(tour_id));
+
+--CREATE TABLE project_purchases (
+--project_purchase_id INT IDENTITY(1,1) PRIMARY KEY,
+--purchase_cost_id INT NOT NULL,
+--project_id INT NOT NULL,
+--UNIQUE (purchase_cost_id, project_id),
+--FOREIGN KEY (purchase_cost_id) REFERENCES purchase_costs (purchase_cost_id),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id));
+
+--CREATE TABLE lookup_trip_type (
+--trip_type_id INT IDENTITY(1,1) PRIMARY KEY,
+--trip_type VARCHAR (255) UNIQUE NOT NULL);
+
+--CREATE TABLE lookup_trips (
+--trip_id INT IDENTITY(1,1) PRIMARY KEY,
+--trip_type VARCHAR (255) NOT NULL,
+--trip_event VARCHAR (255) NOT NULL,
+--gik_submitted VARCHAR(255) DEFAULT 'N/A',
+--gik_approved VARCHAR(255) DEFAULT 'N/A',
+--dean_submitted VARCHAR(255) DEFAULT 'N/A',
+--dean_approved VARCHAR(255) DEFAULT 'N/A',
+--trip_start DATE NOT NULL,
+--trip_end DATE NOT NULL,
+--trip_oic INT,
+--purpose VARCHAR (1000),
+--trip_summary VARCHAR (1000),
+--destination_city VARCHAR (255) NOT NULL,
+--destination_state VARCHAR (255) NOT NULL,
+--destination_country VARCHAR (255) DEFAULT 'USA',
+--trip_status VARCHAR(255) NOT NULL DEFAULT 'ACTIVE',
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT gik_submitted_check CHECK (gik_submitted IN ('N/A', 'YES', 'NO')),
+--CONSTRAINT gik_approved_check CHECK (gik_approved IN ('N/A', 'YES', 'NO')),
+--CONSTRAINT dean_submitted_check CHECK (dean_submitted IN ('N/A', 'YES', 'NO')),
+--CONSTRAINT dean_approved_check CHECK (dean_approved IN ('N/A', 'YES', 'NO')),
+--CONSTRAINT trip_date_check CHECK (trip_start <= trip_end),
+--CONSTRAINT trip_status_check CHECK (trip_status IN ('ACTIVE', 'CANCELLED')),
+--UNIQUE (trip_event, trip_start, destination_city),
+--FOREIGN KEY(trip_type) REFERENCES lookup_trip_type(trip_type),
+--FOREIGN KEY (trip_OIC) REFERENCES tours (tour_id));
+--CREATE TABLE travel_costs (
+--travel_cost_id INT IDENTITY(1,1) PRIMARY KEY,
+--cntrl_num VARCHAR(255),
+--pers_type VARCHAR(255),
+--usma_pers_id VARCHAR(9),
+--last_name VARCHAR(255),
+--first_name VARCHAR(255),
+--email VARCHAR(255),
+--trip_id INT NOT NULL,
+--budget_id SMALLINT,
+--split_loa VARCHAR(255) NOT NULL,
+--budget_assigned_by INT,
+--meal_cost DECIMAL(9,2),
+--lodging_cost DECIMAL(9,2),
+--rental_cost DECIMAL(9,2),
+--pov_cost DECIMAL(9,2), 
+--airfare_cost DECIMAL(9,2),
+--other_cost DECIMAL(9,2),
+--cost_desc VARCHAR(255),
+--travel_cost_committed DECIMAL(9,2),
+--travel_cost_disbursed DECIMAL(9,2),
+--travel_cost_status VARCHAR(255) NOT NULL,
+--voucher_submitted_on DATE,
+--voucher_approved_on DATE,
+--travel_start DATE,
+--travel_end DATE,
+--travel_doc_num VARCHAR(255),
+--missing_class VARCHAR(255),
+--pd_tour INT,
+--pd_approved_on DATE,
+--cd_tour INT,
+--cd_approved_on DATE,
+--xo_tour INT,
+--xo_approved_on DATE,
+--p6_tour INT,
+--p6_approved_on DATE,
+--updated_on DATE DEFAULT GETDATE(),
+--CONSTRAINT pers_type_check_2 CHECK (pers_type IN ('FACULTY', 'CADET', 'GUEST')),
+--CONSTRAINT split_loa_check CHECK (split_loa IN ('YES', 'NO')),
+--CONSTRAINT meal_cost_check CHECK(meal_cost <= 0),
+--CONSTRAINT lodging_cost_check CHECK(lodging_cost <= 0), 
+--CONSTRAINT rental_cost_check CHECK(rental_cost <= 0),
+--CONSTRAINT pov_cost_check CHECK(pov_cost <= 0),
+--CONSTRAINT airfare_cost_check CHECK(airfare_cost <= 0),
+--CONSTRAINT other_cost_check CHECK(other_cost <= 0),
+--CONSTRAINT travel_cost_committed_check CHECK(travel_cost_committed = meal_cost + lodging_cost + rental_cost + pov_cost + airfare_cost + other_cost),
+--CONSTRAINT travel_date_check CHECK (travel_start <= travel_end),
+--CONSTRAINT missing_class_check2 CHECK (missing_class IN ('NO', 'YES', 'REARRANGED SCHEDULE', 'N/A')),
+--FOREIGN KEY (usma_pers_id) REFERENCES personnel (usma_pers_id),
+--FOREIGN KEY (trip_id) REFERENCES lookup_trips (trip_id),
+--FOREIGN KEY (budget_id) REFERENCES budgets (budget_id),
+--FOREIGN KEY (budget_assigned_by) REFERENCES tours (tour_id),
+--FOREIGN KEY(travel_cost_status) REFERENCES lookup_cost_status(cost_status),
+--FOREIGN KEY (pd_tour) REFERENCES tours (tour_id),
+--FOREIGN KEY (cd_tour) REFERENCES tours (tour_id),
+--FOREIGN KEY (xo_tour) REFERENCES tours (tour_id),
+--FOREIGN KEY (p6_tour) REFERENCES tours (tour_id));
+--CREATE TABLE add_locs(
+--add_loc_id INT IDENTITY(1,1) PRIMARY KEY,
+--travel_cost_id INT NOT NULL,
+--leg_start DATE NOT NULL,
+--leg_end DATE NOT NULL,
+--destination_city VARCHAR (255) NOT NULL,
+--destination_state VARCHAR (255) NOT NULL,
+--destination_country VARCHAR (255) DEFAULT 'USA',
+--UNIQUE(travel_cost_id, destination_city, destination_state, destination_country),
+--FOREIGN KEY(travel_cost_id) REFERENCES travel_costs(travel_cost_id))
+
+--CREATE TABLE travel_notes (
+--travel_note_id INT IDENTITY(1,1) PRIMARY KEY,
+--travel_cost_id INT NOT NULL,
+--notes VARCHAR(255) NOT NULL,
+--tour_id INT NOT NULL,
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (travel_cost_id) REFERENCES travel_costs(travel_cost_id),
+--FOREIGN KEY (tour_id) REFERENCES tours(tour_id));
+--INSERT INTO travel_notes (travel_cost_id, notes, tour_id, updated_on)
+
+--CREATE TABLE classes_missed_travel (
+--missed_class_id INT IDENTITY(1,1) PRIMARY KEY,
+--travel_cost_id INT NOT NULL,
+--trip_id INT NOT NULL,
+--section_id INT NOT NULL,
+--missed_date DATE NOT NULL,
+--covering_fac INT,
+--approved_on DATE,
+--FOREIGN KEY (travel_cost_id) REFERENCES travel_costs (travel_cost_id),
+--FOREIGN KEY (trip_id) REFERENCES lookup_trips (trip_id),
+--FOREIGN KEY (section_id) REFERENCES sections (section_id),
+--FOREIGN KEY (covering_fac) REFERENCES tours (tour_id));
+
+--CREATE TABLE project_travel (
+--project_travel_id INT IDENTITY(1,1) PRIMARY KEY,
+--travel_cost_id INT NOT NULL,
+--project_id INT NOT NULL,
+--UNIQUE (travel_cost_id, project_id),
+--FOREIGN KEY (travel_cost_id) REFERENCES travel_costs (travel_cost_id),
+--FOREIGN KEY (project_id) REFERENCES projects (project_id));
+
+--CREATE TABLE aiads (
+--math_aiad_id INT IDENTITY(1,1) PRIMARY KEY,
+--usma_aiad_id INT NOT NULL,
+--travel_cost_id INT NOT NULL UNIQUE,
+--cadet_id VARCHAR(9) NOT NULL,
+--tour_id INT NOT NULL,
+--aiad_name VARCHAR (255) NOT NULL,
+--aiad_desc VARCHAR (500) NOT NULL,
+--aiad_priority INT NOT NULL,
+--aiad_funding_poc SMALLINT NOT NULL,
+--aiad_org_poc SMALLINT NOT NULL,
+--aiad_street_address VARCHAR (255) NOT NULL,
+--aiad_center TINYINT NOT NULL,
+--aiad_aar_link VARCHAR (1000),
+--updated_on DATE DEFAULT GETDATE(),
+--FOREIGN KEY (travel_cost_id) REFERENCES travel_costs(travel_cost_id),
+--FOREIGN KEY (cadet_id) REFERENCES cadets(usma_pers_id),
+--FOREIGN KEY (tour_id) REFERENCES tours(tour_id),
+--FOREIGN KEY (aiad_funding_poc) REFERENCES lookup_sponsors_collaborators(spon_collab_id),
+--FOREIGN KEY (aiad_org_poc) REFERENCES lookup_sponsors_collaborators(spon_collab_id),
+--FOREIGN KEY (aiad_center) REFERENCES lookup_center(center_id));
+
+--CREATE TABLE aiad_projects (
+--math_aiad_id INT NOT NULL,
+--project_cadet_id INT NOT NULL,
+--UNIQUE (math_aiad_id, project_cadet_id),
+--FOREIGN KEY (math_aiad_id) REFERENCES aiads(math_aiad_id),
+--FOREIGN KEY (project_cadet_id) REFERENCES project_cadet(project_cadet_id));
+
+--CREATE TABLE permissions_admin (
+--permission_id INT IDENTITY(1,1) PRIMARY KEY,
+--wp_email VARCHAR(255) NOT NULL);
+
+--CREATE TABLE permissions_S1 (
+--permission_id INT IDENTITY(1,1) PRIMARY KEY,
+--wp_email VARCHAR(255) NOT NULL);
+
+--CREATE TABLE permissions_master (
+--permission_id INT IDENTITY(1,1) PRIMARY KEY,
+--wp_email VARCHAR(255) NOT NULL);
+
+--CREATE TABLE permissions_research (
+--permission_id INT IDENTITY(1,1) PRIMARY KEY,
+--wp_email VARCHAR(255) NOT NULL);

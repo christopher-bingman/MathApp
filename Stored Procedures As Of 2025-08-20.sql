@@ -1,0 +1,87 @@
+--CREATE PROCEDURE view_current_sections_procedure
+--	@travel_start_date DATE
+--AS
+--BEGIN
+--SELECT section_id, sections.tour_id, sections.offering_id, section_num, class_hour, ay, class_num, apd
+--FROM sections
+--	INNER JOIN lookup_class_offerings ON
+--		lookup_class_offerings.offering_id = sections.offering_id
+--	LEFT JOIN program_pos ON
+--		program_pos.program_pos_id = lookup_class_offerings.apd
+--WHERE name_program != 'RESEARCH' AND
+--	ay =
+--	CASE WHEN
+--		MONTH(@travel_start_date) > 7 THEN YEAR(@travel_start_date) + 1
+--		ELSE YEAR(@travel_start_date)
+--		END
+--	AND
+--	semester = 
+--		CASE WHEN
+--			MONTH(@travel_start_date) > 7 THEN 1
+--		ELSE 2
+--		END
+--END;
+
+--CREATE PROCEDURE project_fac_view_procedure	
+--	@project_id INT
+--AS
+--BEGIN
+--SELECT DISTINCT(tour_id), project_fac_id, fac_wp_email, fac_first_name, fac_last_name, role
+--FROM current_projects_view
+--WHERE project_id = @project_id;
+--END
+
+--CREATE PROCEDURE project_cadet_view_procedure	
+--	@project_id INT
+--AS
+--BEGIN
+--SELECT DISTINCT(usma_pers_id), project_cadet_id, cdt_wp_email, cdt_first_name, cdt_last_name, class_num, offering_id, grad_year, major_1,
+--major_2, project_status
+--FROM current_projects_view
+--WHERE project_id = @project_id;
+--END
+
+--CREATE PROCEDURE aggregate_pd_approval_procedure
+--	@travel_cost_id INT,
+--	@program_pos_id INT,
+--	@apd_tour_id INT,
+--	@instructor_tour INT
+--AS
+--BEGIN
+--UPDATE travel_costs SET pd_approved_on = 
+--CASE WHEN
+--	(SELECT COUNT(approved_on) FROM missed_classes_travel_view
+--	WHERE travel_cost_id = @travel_cost_id AND approved_on IS NOT NULL)
+--	=
+--	(SELECT COUNT(missed_class_id) FROM missed_classes_travel_view
+--	WHERE travel_cost_id = @travel_cost_id)
+--	THEN  GETDATE()
+--	ELSE NULL
+--	END,
+--pd_tour = 
+--CASE WHEN
+--	(SELECT COUNT(approved_on) FROM missed_classes_travel_view
+--	WHERE travel_cost_id = @travel_cost_id AND approved_on IS NOT NULL)
+--	=
+--	(SELECT COUNT(missed_class_id) FROM missed_classes_travel_view
+--	WHERE travel_cost_id = @travel_cost_id)
+--	THEN  @apd_tour_id
+--	ELSE NULL
+--	END
+--WHERE travel_cost_id = @travel_cost_id AND 
+--	EXISTS(
+--	SELECT 1 FROM classes_missed_travel AS cmt 
+--	INNER JOIN sections ON	
+--		cmt.section_id = sections.section_id
+--	INNER JOIN lookup_class_offerings ON	
+--		lookup_class_offerings.offering_id = sections.offering_id
+--	WHERE cmt.travel_cost_id = @travel_cost_id AND lookup_class_offerings.apd = @program_pos_id);
+--UPDATE travel_costs SET pd_approved_on = GETDATE(), pd_tour = @apd_tour_id WHERE
+--	(SELECT COUNT(*) FROM classes_missed_travel WHERE travel_cost_id = @travel_cost_id) = 0 AND
+--	travel_cost_id = @travel_cost_id AND
+--	EXISTS(
+--	SELECT 1 FROM sections 
+--	INNER JOIN lookup_class_offerings ON	
+--		lookup_class_offerings.offering_id = sections.offering_id
+--	WHERE tour_id = @instructor_tour AND apd = @program_pos_id);
+--END;

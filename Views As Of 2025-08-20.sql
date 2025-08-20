@@ -1,0 +1,1387 @@
+--CREATE VIEW add_pers_view
+--AS
+--SELECT personnel.usma_pers_id, last_name, first_name, middle_name, sex, wp_email, perm_email, service, cell_num, birthday
+--FROM personnel
+--	INNER JOIN faculty ON
+--		faculty.usma_pers_id = personnel.usma_pers_id
+--WHERE wp_email NOT LIKE '%.EDU_%'
+--EXCEPT
+--SELECT personnel.usma_pers_id, personnel.last_name, personnel.first_name, personnel.middle_name, personnel.sex, personnel.wp_email, 
+--personnel.perm_email, faculty.service, faculty.cell_num, faculty.birthday
+--FROM personnel
+--	INNER JOIN faculty ON
+--		faculty.usma_pers_id = personnel.usma_pers_id
+--	INNER JOIN current_fac_view ON
+--		current_fac_view.usma_pers_id = faculty.usma_pers_id
+
+--CREATE VIEW current_fac_view
+--AS
+--WITH ranked_duties AS (
+--    SELECT 
+--        additional_duty.*, 
+--        ROW_NUMBER() OVER (PARTITION BY add_duty ORDER BY updated_on DESC) AS row_num
+--    FROM additional_duty
+--    WHERE committee_id = 5)
+--SELECT 
+--    tours.usma_pers_id, last_name, first_name, middle_name, CONCAT(last_name, ', ', first_name) AS name, sex, wp_email, perm_email,
+--    service, cell_num, birthday, tours.tour_id, assign_type, arrival_date, depart_date, rank_title, acad_rank, office, office_phone, 
+--	center_abbrev, lookup_center.center_id, center_pos.pos_title, program_pos_id, name_program, program_pos.pos_title AS PD, 
+--	ranked_duties.add_duty AS dept_pos
+--FROM tours
+--	INNER JOIN faculty 
+--		ON faculty.usma_pers_id = tours.usma_pers_id
+--	INNER JOIN personnel ON 
+--		personnel.usma_pers_id = faculty.usma_pers_id
+--	FULL OUTER JOIN center_pos 
+--		INNER JOIN lookup_center ON 
+--			lookup_center.center_id = center_pos.center_id
+--		ON center_pos.tour_id = tours.tour_id
+--	FULL OUTER JOIN program_pos ON 
+--		program_pos.tour_id = tours.tour_id
+--	FULL OUTER JOIN ranked_duties ON 
+--		ranked_duties.tour_id = tours.tour_id
+--WHERE ranked_duties.row_num = 1 OR ranked_duties.row_num IS NULL
+--  AND DATEDIFF(DAY, ISNULL(depart_date, GETDATE()), GETDATE()) <= 365;
+
+--CREATE VIEW current_degree_view
+--AS
+--SELECT current_fac_view.usma_pers_id, degree_id, degree_abbrev, degree_year, degree_name, degree_school FROM current_fac_view
+--INNER JOIN degrees ON
+--	degrees.usma_pers_id = current_fac_view.usma_pers_id
+
+--CREATE VIEW current_classes_view
+--AS
+--SELECT offering_id, ay, semester, lookup_class_offerings.class_num, class_name, credit_hours, pd.name_program, 
+--apd, pd.name AS apd_name, wp_email AS apd_email
+--FROM lookup_class_offerings
+--	INNER JOIN lookup_classes ON
+--		lookup_classes.class_num = lookup_class_offerings.class_num
+--	LEFT JOIN (
+--	SELECT pp.program_pos_id, pp.name_program, pp.tour_id, name, wp_email FROM program_pos AS pp
+--	INNER JOIN current_fac_view ON
+--		pp.tour_id = current_fac_view.tour_id) AS pd ON
+--		pd.program_pos_id = lookup_class_offerings.apd
+--WHERE 
+--	(CASE WHEN
+--		MONTH(GETDATE()) > 7 THEN YEAR(GETDATE()) + 1
+--		ELSE YEAR(GETDATE())
+--		END)
+--	- ay <= 1
+
+--CREATE VIEW current_research_classes_view
+--AS
+--SELECT * FROM current_classes_view
+--WHERE name_program = 'RESEARCH'
+
+--CREATE VIEW fac_courses_view
+--AS
+--SELECT tour_id, class_num, COUNT(*) AS instances FROM sections
+--	INNER JOIN lookup_class_offerings ON
+--		lookup_class_offerings.offering_id = sections.offering_id
+--GROUP BY tour_id, class_num
+
+--CREATE VIEW add_duty_view
+--AS
+--SELECT tour_id, committee_name, add_duty FROM additional_duty
+--INNER JOIN lookup_committee ON
+--	lookup_committee.committee_id = additional_duty.committee_id
+
+--CREATE VIEW course_pos_view
+--AS
+--SELECT tour_id, class_num, pos_title FROM course_pos
+--GROUP BY tour_id, class_num, pos_title
+
+--CREATE VIEW current_cadet_view
+--AS
+--SELECT personnel.usma_pers_id, 
+--	last_name, 
+--	first_name, 
+--	wp_email, 
+--	grad_year, 
+--	grad_status, 
+--	MAX(CASE WHEN major_row = 1 THEN major_code END) AS major_code_1,
+--    MAX(CASE WHEN major_row = 2 THEN major_code END) AS major_code_2
+--FROM personnel
+--	INNER JOIN cadets ON
+--		cadets.usma_pers_id = personnel.usma_pers_id
+--	LEFT JOIN 
+--		(SELECT 
+--			usma_pers_id, 
+--			major_code,
+--			ROW_NUMBER() OVER (PARTITION BY usma_pers_id ORDER BY major_code) AS major_row 
+--		FROM majors) AS major_list 
+--		ON major_list.usma_pers_id = personnel.usma_pers_id
+--WHERE pers_type = 'CADET' AND grad_status = 'CADET'
+--GROUP BY
+--	personnel.usma_pers_id, 
+--    last_name, 
+--    first_name, 
+--    wp_email, 
+--    grad_year, 
+--    grad_status;
+
+--CREATE VIEW current_projects_view
+--AS
+--SELECT projects.project_id, project_title, project_desc,
+--	project_status, 
+--	project_cadet_id, 
+--	project_cadet.usma_pers_id, 
+--	personnel.wp_email AS cdt_wp_email, 
+--	personnel.last_name AS cdt_last_name, 
+--	personnel.first_name AS cdt_first_name, 
+--	grad_year,
+--	MAX(CASE WHEN major_row = 1 THEN major_code END) AS major_1,
+--    MAX(CASE WHEN major_row = 2 THEN major_code END) AS major_2,
+--	project_fac_id, 
+--	project_fac.tour_id, 
+--	FAC.wp_email AS fac_wp_email,
+--	FAC.last_name AS fac_last_name, 
+--	FAC.first_name AS fac_first_name,
+--	role,
+--	class_num, 
+--	ay, 
+--	semester,
+--	project_cadet.offering_id,
+--	center_abbrev
+--FROM projects
+--	INNER JOIN project_cadet ON
+--		project_cadet.project_id = projects.project_id
+--	INNER JOIN cadets ON
+--		cadets.usma_pers_id = project_cadet.usma_pers_id
+--	LEFT JOIN 
+--		(SELECT
+--			usma_pers_id,
+--			major_code, 
+--			ROW_NUMBER() OVER (PARTITION BY usma_pers_id ORDER BY major_code) AS major_row
+--		FROM majors) AS major_list
+--		ON major_list.usma_pers_id = cadets.usma_pers_id
+--	INNER JOIN personnel ON
+--		personnel.usma_pers_id = cadets.usma_pers_id
+--	INNER JOIN project_fac ON
+--		project_fac.project_id = projects.project_id
+--	INNER JOIN tours ON
+--		tours.tour_id = project_fac.tour_id
+--	INNER JOIN faculty ON
+--		faculty.usma_pers_id = tours.usma_pers_id
+--	INNER JOIN personnel AS FAC ON
+--		FAC.usma_pers_id = faculty.usma_pers_id
+--	INNER JOIN lookup_class_offerings ON
+--		lookup_class_offerings.offering_id = project_cadet.offering_id
+--	LEFT JOIN center_sponsors ON
+--		center_sponsors.project_id = projects.project_id
+--	LEFT JOIN lookup_center ON
+--		lookup_center.center_id = center_sponsors.center_id
+--WHERE  
+--	(SELECT(YEAR(GETDATE()) - ay)) <= 2 AND
+--	DATEDIFF(DAY, projects.updated_on, GETDATE()) < 365
+--GROUP BY projects.project_id, project_title, project_desc, project_status, 
+--		project_cadet_id, project_cadet.usma_pers_id, 
+--		personnel.wp_email, personnel.last_name, personnel.first_name, 
+--		grad_year, project_fac_id, project_fac.tour_id, 
+--		FAC.wp_email, FAC.last_name, FAC.first_name, 
+--		role, class_num, ay, semester, project_cadet.offering_id, center_abbrev;
+
+--CREATE VIEW project_tags_view
+--AS
+
+--SELECT current_projects_view.project_id, project_tags.topic_method_id, topic_method, tag_id 
+--FROM project_tags
+--	INNER JOIN lookup_topic_methods ON
+--		lookup_topic_methods.topic_method_id = project_tags.topic_method_id
+--	INNER JOIN current_projects_view ON
+--		current_projects_view.project_id = project_tags.project_id
+--GROUP BY current_projects_view.project_id, project_tags.topic_method_id, topic_method, tag_id
+
+--CREATE VIEW project_priority_view
+--AS
+--SELECT project_priority_id, current_projects_view.project_id, priorities.priority_id, priority_name, priority_num, lookup_priority.ay, proponent_name
+--FROM priorities
+--	INNER JOIN lookup_priority ON
+--		lookup_priority.priority_id = priorities.priority_id
+--	INNER JOIN current_projects_view ON
+--		current_projects_view.project_id = priorities.project_id
+--GROUP BY project_priority_id, current_projects_view.project_id, priorities.priority_id, priority_name, priority_num, 
+--	lookup_priority.ay, proponent_name
+
+--CREATE VIEW current_cadet_pubs_view
+--AS
+--SELECT cadet_pub_id, cdt_last_name, publications.venue_id, venue_abbrev, venue_name, publications.pub_type_id, pub_type, project_id, 
+--current_projects.project_cadet_id, pub_title, signed_up, pub_date, pub_link, updated_on 
+--FROM publications
+--	LEFT JOIN lookup_pub_venues ON
+--		publications.venue_id = lookup_pub_venues.venue_id
+--	LEFT JOIN lookup_pub_types ON
+--		publications.pub_type_id = lookup_pub_types.pub_type_id
+--	INNER JOIN (SELECT project_cadet_id, project_id, cdt_last_name FROM current_projects_view 
+--				GROUP BY project_cadet_id, project_id, cdt_last_name) AS current_projects ON
+--		current_projects.project_cadet_id = publications.project_cadet_id
+
+--CREATE VIEW project_collab_org_view
+--AS
+--SELECT DISTINCT(current_projects_view.project_id), 
+--       project_collaborator_id, 
+--       lookup_sponsors_collaborators.spon_collab_id AS collab_id, 
+--       spon_collab_email AS collab_email, 
+--       spon_collab_last_name AS last_name, 
+--       spon_collab_first_name AS first_name, 
+--       CASE 
+--           WHEN spon_collab_last_name IS NOT NULL THEN CONCAT(spon_collab_last_name, ', ', spon_collab_first_name) 
+--           ELSE NULL 
+--       END AS collab_name,
+--       lookup_orgs.org_id, 
+--       lookup_orgs.org_name, 
+--	   lookup_orgs.parent_org_id, 
+--	   parent_orgs.org_name AS parent_org_name,
+--       CASE 
+--           WHEN lookup_orgs.parent_org_id IS NOT NULL THEN CONCAT(lookup_orgs.org_name, ', ', parent_orgs.org_name)
+--           ELSE lookup_orgs.org_name 
+--       END AS org_and_parent,
+--       lookup_orgs.org_abbrev, 
+--       lookup_orgs.org_type, 
+--       lookup_orgs.org_city, 
+--       lookup_orgs.org_state, 
+--       lookup_orgs.org_country
+--FROM current_projects_view
+--FULL OUTER JOIN project_collaborators 
+--    ON project_collaborators.project_id = current_projects_view.project_id
+--FULL OUTER JOIN lookup_sponsors_collaborators 
+--    ON lookup_sponsors_collaborators.spon_collab_id = project_collaborators.spon_collab_id
+--FULL OUTER JOIN lookup_orgs 
+--    ON lookup_orgs.org_id = lookup_sponsors_collaborators.org_id
+--LEFT JOIN lookup_orgs AS parent_orgs 
+--    ON parent_orgs.org_id = lookup_orgs.parent_org_id;
+
+--CREATE VIEW lookup_collab_view
+--AS
+--SELECT DISTINCT(collab_id), collab_email, last_name, first_name, collab_name, org_id, org_and_parent 
+--FROM project_collab_org_view WHERE collab_id IS NOT NULL
+
+--CREATE VIEW lookup_org_view
+--AS
+--SELECT DISTINCT(org_id), org_name, parent_org_id, parent_org_name, org_and_parent, org_abbrev, org_type, org_city, org_state, org_country
+--FROM project_collab_org_view WHERE org_id IS NOT NULL
+
+--CREATE VIEW current_budget_view
+--AS
+--WITH RankedSpendPlan AS (
+--    SELECT 
+--        budget_id, 
+--        fee_amount, 
+--        print_amount, 
+--        salary_amount, 
+--        supply_amount, 
+--        travel_amount, 
+--        gift_amount, 
+--        total_amount,
+--		updated_on,
+--        ROW_NUMBER() OVER (PARTITION BY budget_id ORDER BY updated_on DESC) AS rn
+--    FROM spend_plan
+--)
+--SELECT 
+--    budgets.budget_id, 
+--    budget_name, 
+--    budget_type, 
+--    funding_type, 
+--    loa, 
+--	mipr_num,
+--    wbs_cost_center,
+--	received_date,
+--    expire_date, 
+--    pop_date, 
+--	lookup_center.center_id, 
+--	lookup_center.center_abbrev,
+--	personnel.last_name AS director_last_name,
+--	personnel.first_name AS director_first_name,
+--	CONCAT(personnel.last_name, ', ', personnel.first_name) AS director_name,
+--	personnel.wp_email AS director_wp_email,
+--	center_directors.tour_id AS director_tour,
+--	tours.usma_pers_id AS director_usma_pers_id,
+--	center_directors.pos_title AS director_pos_title,
+--	budgets.updated_on AS budget_updated_on,
+--    spendplan.fee_amount, 
+--    spendplan.gift_amount, 
+--    spendplan.supply_amount, 
+--    spendplan.print_amount, 
+--    spendplan.salary_amount, 
+--    spendplan.travel_amount, 
+--    spendplan.total_amount,
+--	spendplan.updated_on AS spend_plan_updated_on,
+--	budget_sponsor_id, 
+--	DATEDIFF(DAY, 
+--    GETDATE(),
+--	CASE 
+--        WHEN funding_type = 'PROJECT ORDER' THEN pop_date
+--        WHEN funding_type = 'ECONOMY ACT' THEN 
+--            CASE
+--                WHEN pop_date < expire_date THEN pop_date
+--                ELSE expire_date
+--            END
+--        ELSE expire_date
+--    END) AS days_to_expire
+--FROM budgets 
+--	INNER JOIN RankedSpendPlan AS spendplan 
+--		ON spendplan.budget_id = budgets.budget_id
+--		AND spendplan.rn = 1  -- Ensures we only get the most recent record per budget_id
+--	INNER JOIN lookup_center 
+--		ON lookup_center.center_id = budgets.center_id
+--	LEFT JOIN budget_sponsors ON
+--		budget_sponsors.budget_id = budgets.budget_id
+--	INNER JOIN 
+--		(SELECT cp.*
+--			FROM center_pos AS cp
+--			INNER JOIN (
+--				SELECT center_id, MAX(updated_on) AS max_updated_on
+--				FROM center_pos
+--				WHERE pos_title = 'Director'
+--				GROUP BY center_id
+--			) latest
+--				ON cp.center_id = latest.center_id
+--				AND cp.updated_on = latest.max_updated_on
+--			WHERE cp.pos_title = 'Director') AS center_directors ON
+--		center_directors.center_id = budgets.center_id
+--	INNER JOIN tours ON
+--		tours.tour_id = center_directors.tour_id
+--	INNER JOIN faculty ON
+--		faculty.usma_pers_id = tours.usma_pers_id
+--	INNER JOIN personnel ON
+--		personnel.usma_pers_id = faculty.usma_pers_id
+--WHERE DATEDIFF(DAY, 
+--    (CASE 
+--        WHEN funding_type = 'PROJECT ORDER' THEN pop_date
+--        WHEN funding_type = 'ECONOMY ACT' THEN 
+--            CASE
+--                WHEN pop_date < expire_date THEN pop_date
+--                ELSE expire_date
+--            END
+--        ELSE expire_date
+--    END),
+--	GETDATE()) <= 60;
+
+--CREATE VIEW budget_notes_view
+--AS
+--SELECT budget_note_id, budget_notes.budget_id, notes, budget_notes.tour_id AS created_tour, current_fac_view.name AS created_name, 
+--budget_notes.updated_on
+--FROM budget_notes
+--	INNER JOIN current_fac_view ON
+--		current_fac_view.tour_id = budget_notes.tour_id
+--	INNER JOIN current_budget_view ON
+--		current_budget_view.budget_id = budget_notes.budget_id
+
+--CREATE VIEW budget_sponsor_view
+--AS
+--SELECT bs.budget_sponsor_id, bs.spon_collab_id, bs.budget_id, budget_name, collab_email, last_name, first_name, collab_name, org_id, org_and_parent
+--FROM budget_sponsors bs
+--	INNER JOIN current_budget_view cbv ON
+--		cbv.budget_id = bs.budget_id
+--	INNER JOIN lookup_collab_view lcv ON
+--		lcv.collab_id = bs.spon_collab_id
+
+--CREATE VIEW budget_ledger_view
+--AS
+--SELECT 'TRAVEL' AS category, cntrl_num, NULL AS fy, trip_id, travel_id AS ID, budgets.budget_name, budgets.budget_id, budget_type, NULL AS tour_id, NULL AS last_name, NULL AS first_name, 
+--traveler_name AS name, traveler_email AS email, trip_event AS purpose, trip_start, travel_doc_num AS doc_num, travel_cost_committed AS projected_cost,
+--CASE 
+--	WHEN travel_cost_status = 'PROJECTED'
+--	THEN 0
+--	ELSE travel_cost_committed
+--	END
+--	AS committed_cost,
+--ISNULL(travel_cost_disbursed, 0) AS disbursed_cost, travel_cost_status AS status
+--FROM current_travel_view
+--	LEFT JOIN budgets ON
+--		budgets.budget_id = current_travel_view.budget_id
+--WHERE NOT (
+--    travel_cost_status = 'CANCELLED'
+--    AND cntrl_num IS NULL
+--)
+--UNION ALL
+---- PRINT AND SUPPLY
+--SELECT purchase_category AS category, cntrl_num, NULL AS fy, NULL AS trip_id, purchase_cost_id AS ID, budgets.budget_name, budgets.budget_id, budget_type, NULL AS tour_id, NULL AS last_name, NULL AS first_name, 
+--requestor_name AS name, requestor_email AS email, purpose, NULL AS trip_start, gfebs_pr_num AS doc_num, purchase_cost AS projected_cost,
+--CASE WHEN cntrl_num IS NOT NULL
+--	THEN purchase_cost
+--	ELSE 0
+--	END
+--	AS committed_cost,
+--CASE WHEN purchase_cost_status = 'DISBURSED'
+--	THEN purchase_cost 
+--	ELSE 0
+--	END
+--	AS disbursed_cost, purchase_cost_status AS status
+--FROM purchase_cost_view
+--	LEFT JOIN budgets ON
+--		budgets.budget_id = purchase_cost_view.budget_id
+--WHERE NOT (
+--    purchase_cost_status = 'CANCELLED'
+--    AND cntrl_num IS NULL
+--)
+--UNION ALL
+---- FEE
+--SELECT 'FEE' AS category, cntrl_num, NULL AS fy, NULL AS trip_id, fee_id AS ID, budgets.budget_name, budgets.budget_id, budget_type, NULL AS tour_id, NULL AS last_name, NULL AS first_name, NULL AS name,
+--NULL AS email, notes AS purpose, NULL AS trip_start, NULL AS doc_num, fee_cost AS projected_cost, fee_cost AS committed_cost, fee_cost AS disbursed_cost, 'DISBURSED' AS status
+--FROM fee_costs
+--	INNER JOIN budgets ON
+--		budgets.budget_id = fee_costs.budget_id
+--UNION ALL
+---- DEPOSITS
+--SELECT 'DEPOSIT' AS category, cntrl_num, NULL AS fy, NULL AS trip_id, deposit_id AS ID, budgets.budget_name, budgets.budget_id, budget_type, NULL AS tour_id, NULL AS last_name, NULL AS first_name, NULL AS name, 
+--NULL AS email, notes AS purpose, NULL AS trip_start, NULL AS doc_num, deposit_amount AS projected_cost, deposit_amount AS committed_cost, deposit_amount AS disbursed_cost, 'DISBURSED' AS status
+--FROM add_deposits
+--	INNER JOIN budgets ON
+--		budgets.budget_id = add_deposits.budget_id
+--UNION ALL
+---- SALARY
+--SELECT 'SALARY' AS category, cntrl_num, fy, NULL AS trip_id, salary_id AS ID, budgets.budget_name, budgets.budget_id, budget_type, tour_id, last_name, first_name, name,
+--email, CONCAT(salary_type, ' SALARY') AS purpose, NULL AS trip_start, NULL AS doc_num, 
+--projected_salary AS projected_cost,
+--CASE WHEN projected_salary < disbursed_salary
+--	THEN projected_salary - disbursed_salary
+--	ELSE 0
+--	END
+--	AS committed_cost, 
+--disbursed_salary AS disbursed_cost, 
+--CASE 
+--	WHEN salary_complete = 'YES'
+--	THEN CASE
+--		WHEN disbursed_salary = 0
+--		THEN 'CANCELLED'
+--		ELSE 'DISBURSED'
+--		END
+--	ELSE 
+--		CASE WHEN cntrl_num IS NULL
+--		THEN 'PROJECTED'
+--		ELSE 'COMMITTED'
+--		END
+--	END
+--	AS status
+--FROM salary_costs_view
+--	LEFT JOIN budgets ON
+--		budgets.budget_id = salary_costs_view.budget_id
+
+--CREATE VIEW total_costs_view
+--AS
+--WITH 
+--	fee_CTE AS (
+--		SELECT budget_id, budget_name, ISNULL(SUM(disbursed_cost),0) AS fee_costs, 0 AS gift_costs, 0 AS print_costs, 0 AS supply_costs, 0 AS salary_costs, 0 AS travel_costs 
+--		FROM budget_ledger_view 
+--		WHERE (category = 'FEE' AND budget_type != 'GIFT')
+--		GROUP BY budget_id, budget_name),
+--	gift_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_costs, 
+--		ISNULL(SUM(
+--		CASE 
+--			WHEN category = 'TRAVEL'
+--			THEN
+--				CASE 
+--					WHEN status = 'PROJECTED'
+--					THEN projected_cost
+--					WHEN status = 'COMMITTED'
+--					THEN
+--						CASE 
+--							WHEN committed_cost < disbursed_cost
+--							THEN committed_cost
+--							ELSE disbursed_cost
+--						END
+--					WHEN status = 'DISBURSED'
+--					THEN disbursed_cost
+--					ELSE 0
+--				END
+--			WHEN category = 'PRINT' OR category = 'SUPPLY'
+--			THEN 
+--				CASE
+--					WHEN status = 'PROJECTED'
+--					THEN projected_cost
+--					WHEN status = 'COMMITTED'
+--					THEN
+--						CASE 
+--							WHEN committed_cost < disbursed_cost
+--							THEN committed_cost
+--							ELSE disbursed_cost
+--						END
+--					WHEN status = 'DISBURSED'
+--					THEN disbursed_cost
+--					ELSE 0
+--				END
+--			WHEN category = 'FEE'
+--			THEN disbursed_cost
+--			WHEN category = 'SALARY'
+--			THEN
+--				CASE
+--					WHEN status = 'PROJECTED'
+--					THEN projected_cost
+--					WHEN status = 'COMMITTED'
+--					THEN
+--						CASE 
+--							WHEN committed_cost < disbursed_cost
+--							THEN committed_cost
+--							ELSE disbursed_cost
+--						END
+--					WHEN status = 'DISBURSED'
+--					THEN disbursed_cost
+--					ELSE 0
+--				END
+--		END), 0) AS gift_costs, 
+--		0 AS print_costs, 0 AS supply_costs, 0 AS salary_costs, 0 AS travel_costs 
+--		FROM budget_ledger_view WHERE budget_type = 'GIFT'
+--		GROUP BY budget_id, budget_name), 
+--	print_CTE AS(
+--		SELECT budget_id, budget_name, 0 AS fee_cost, 0 AS gift_cost, 
+--		ISNULL(SUM(
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN CASE
+--					WHEN committed_cost < disbursed_cost
+--					THEN committed_cost
+--					END
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END), 0) AS print_cost, 
+--		0 AS supply_cost, 0 AS salary_cost, 0 AS travel_cost 
+--		FROM budget_ledger_view
+--		WHERE (category = 'PRINT' AND budget_type != 'GIFT') 
+--		GROUP BY budget_id, budget_name),
+--	supply_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_cost, 0 AS gift_cost, 0 AS print_cost, 
+--		ISNULL(SUM(
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN CASE
+--					WHEN committed_cost < disbursed_cost
+--					THEN committed_cost
+--					END
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END), 0) AS supply_cost, 
+--		0 AS salary_cost, 0 AS travel_cost 
+--		FROM budget_ledger_view
+--		WHERE (category = 'SUPPLY' AND budget_type != 'GIFT') 
+--		GROUP BY budget_id, budget_name),
+--	salary_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_cost, 0 AS gift_cost, 0 AS print_cost, 0 AS supply_cost, 
+--		ISNULL(SUM(
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN committed_cost + disbursed_cost
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END), 0) AS salary_cost, 
+--		0 AS travel_cost  
+--		FROM budget_ledger_view WHERE (category = 'SALARY' AND budget_type != 'GIFT')
+--		GROUP BY budget_id, budget_name), 
+--	travel_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_remaining, 0 AS gift_remaining, 0 AS print_remaining, 0 AS supply_remaining, 0 AS salary_remaining, 
+--		ISNULL(SUM(
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN 
+--					CASE
+--						WHEN committed_cost < disbursed_cost
+--						THEN committed_cost
+--						ELSE disbursed_cost
+--					END
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END), 0) AS travel_cost 
+--		FROM budget_ledger_view WHERE (category = 'TRAVEL' AND budget_type != 'GIFT')
+--		GROUP BY budget_id, budget_name)
+--SELECT 
+--    cbv.budget_id,
+--    cbv.budget_name,
+--    ISNULL(f.fee_costs, 0) AS fee_costs,
+--    ISNULL(g.gift_costs, 0) AS gift_costs,
+--    ISNULL(p.print_cost, 0) AS print_costs,
+--    ISNULL(s.supply_cost, 0) AS supply_costs,
+--    ISNULL(sa.salary_cost, 0) AS salary_costs,
+--    ISNULL(t.travel_cost, 0) AS travel_costs,
+--    -- optional total cost column:
+--    ISNULL(f.fee_costs, 0) + ISNULL(g.gift_costs, 0) + ISNULL(p.print_cost, 0) + 
+--    ISNULL(s.supply_cost, 0) + ISNULL(sa.salary_cost, 0) + ISNULL(t.travel_cost, 0) AS total_costs
+--FROM 
+--    (SELECT budget_id, budget_name FROM current_budget_view) cbv
+--LEFT JOIN fee_CTE f ON cbv.budget_id = f.budget_id
+--LEFT JOIN gift_CTE g ON cbv.budget_id = g.budget_id
+--LEFT JOIN print_CTE p ON cbv.budget_id = p.budget_id
+--LEFT JOIN supply_CTE s ON cbv.budget_id = s.budget_id
+--LEFT JOIN salary_CTE sa ON cbv.budget_id = sa.budget_id
+--LEFT JOIN travel_CTE t ON cbv.budget_id = t.budget_id
+
+--CREATE VIEW remaining_balance_view
+--AS
+--WITH 
+--	fee_CTE AS (
+--		SELECT budget_id, budget_name, SUM(fee) AS fee_remaining, 0 AS gift_remaining, 0 AS print_remaining, 0 AS supply_remaining, 0 AS salary_remaining, 0 AS travel_remaining FROM (
+--			SELECT budget_id, budget_name, fee_amount AS fee FROM current_budget_view
+--			UNION
+--			SELECT budget_id, budget_name, disbursed_cost AS fee 
+--			FROM budget_ledger_view 
+--			WHERE (category = 'FEE' AND budget_type != 'GIFT')) AS dummy
+--		GROUP BY budget_id, budget_name),
+--	gift_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_remaining, SUM(gift) AS gift_remaining, 0 AS print_remaining, 0 AS supply_remaining, 0 AS salary_remaining, 0 AS travel_remaining FROM (
+--			SELECT budget_id, budget_name, gift_amount AS gift 
+--			FROM current_budget_view
+--			WHERE budget_type = 'GIFT'
+--			UNION ALL
+--			SELECT budget_id, budget_name, SUM(
+--				CASE 
+--					WHEN category = 'TRAVEL'
+--						THEN
+--							CASE 
+--								WHEN status = 'PROJECTED'
+--								THEN projected_cost
+--								WHEN status = 'COMMITTED'
+--								THEN
+--									CASE WHEN
+--										committed_cost < disbursed_cost
+--										THEN committed_cost
+--										ELSE disbursed_cost
+--									END
+--								WHEN status = 'DISBURSED'
+--								THEN disbursed_cost
+--								ELSE 0
+--							END
+--					WHEN category = 'PRINT' OR category = 'SUPPLY'
+--						THEN 
+--							CASE
+--								WHEN status = 'PROJECTED'
+--								THEN projected_cost
+--								WHEN status = 'COMMITTED'
+--								THEN
+--									CASE WHEN
+--										committed_cost < disbursed_cost
+--										THEN committed_cost
+--										ELSE disbursed_cost
+--									END
+--								WHEN status = 'DISBURSED'
+--								THEN disbursed_cost
+--								ELSE 0
+--							END
+--					WHEN category = 'FEE'
+--						THEN disbursed_cost
+--					WHEN category = 'SALARY'
+--						THEN
+--							CASE
+--								WHEN status = 'PROJECTED'
+--								THEN projected_cost
+--								WHEN status = 'COMMITTED'
+--								THEN
+--									CASE WHEN
+--										committed_cost < disbursed_cost
+--										THEN committed_cost
+--										ELSE disbursed_cost
+--									END
+--								WHEN status = 'DISBURSED'
+--								THEN disbursed_cost
+--								ELSE 0
+--							END
+--				END)
+--				AS gift
+--			FROM budget_ledger_view WHERE budget_type = 'GIFT'
+--			GROUP BY budget_id, budget_name	) AS dummy
+--		GROUP BY budget_id, budget_name), 
+--	print_CTE AS(
+--		SELECT budget_id, budget_name, 0 AS fee_remaining, 0 AS gift_remaining, SUM(print_amount) AS print_remaining, 0 AS supply_remaining, 0 AS salary_remaining, 0 AS travel_remaining FROM (
+--			SELECT budget_id, budget_name, print_amount FROM current_budget_view WHERE budget_type != 'GIFT'-- TOTAL PRINT AMOUNT ALLOCATED
+--			UNION ALL
+--			SELECT budget_id, budget_name, 
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN CASE
+--						WHEN committed_cost < disbursed_cost
+--						THEN committed_cost
+--						END
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END
+--				AS print_amount
+--			FROM budget_ledger_view
+--			WHERE (category = 'PRINT' AND budget_type != 'GIFT')) AS dummy 
+--		GROUP BY budget_id, budget_name),
+--	supply_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_remaining, 0 AS gift_remaining, 0 AS print_remaining, SUM(supply_amount) AS supply_remaining, 0 AS salary_remaining, 0 AS travel_remaining FROM (
+--			SELECT budget_id, budget_name, supply_amount FROM current_budget_view WHERE budget_type != 'GIFT'-- TOTAL SUPPLY AMOUNT ALLOCATED
+--			UNION ALL
+--			SELECT budget_id, budget_name, 
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN CASE
+--						WHEN committed_cost < disbursed_cost
+--						THEN committed_cost
+--						END
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END
+--				AS supply_amount
+--			FROM budget_ledger_view
+--			WHERE (category = 'SUPPLY' AND budget_type != 'GIFT')) AS dummy 
+--		GROUP BY budget_id, budget_name),
+--	salary_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_remaining, 0 AS gift_remaining, 0 AS print_remaining, 0 AS supply_remaining, SUM(salary_amount) AS salary_remaining, 0 AS travel_remaining FROM (
+--			SELECT budget_id, budget_name, salary_amount FROM current_budget_view WHERE budget_type != 'GIFT'
+--			UNION ALL
+--			SELECT budget_id, budget_name, 
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN committed_cost + disbursed_cost
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END
+--				AS salary_amount
+--			FROM budget_ledger_view WHERE (category = 'SALARY' AND budget_type != 'GIFT')) AS dummy
+--		GROUP BY budget_id, budget_name), 
+--	travel_CTE AS (
+--		SELECT budget_id, budget_name, 0 AS fee_remaining, 0 AS gift_remaining, 0 AS print_remaining, 0 AS supply_remaining, 0 AS salary_remaining, SUM(travel_amount) AS travel_remaining FROM (
+--			SELECT budget_id, budget_name, travel_amount FROM current_budget_view WHERE budget_type != 'GIFT'
+--			UNION ALL
+--			SELECT budget_id, budget_name, 
+--			CASE 
+--				WHEN status = 'PROJECTED'
+--				THEN projected_cost
+--				WHEN status = 'COMMITTED'
+--				THEN CASE
+--					WHEN committed_cost < disbursed_cost
+--					THEN committed_cost
+--					ELSE disbursed_cost
+--					END
+--				WHEN status = 'DISBURSED'
+--				THEN disbursed_cost
+--				WHEN status = 'CANCELLED'
+--				THEN 0
+--				END
+--				AS travel_amount
+--			FROM budget_ledger_view WHERE (category = 'TRAVEL' AND budget_type != 'GIFT')) AS dummy
+--		GROUP BY budget_id, budget_name)
+--SELECT 
+--    COALESCE(fee.budget_id, gift.budget_id, print_CTE.budget_id, supply.budget_id, salary.budget_id, travel.budget_id) AS budget_id,
+--    COALESCE(fee.budget_name, gift.budget_name, print_CTE.budget_name, supply.budget_name, salary.budget_name, travel.budget_name) AS budget_name,
+--    COALESCE(fee.fee_remaining, 0) AS fee_remaining,
+--    COALESCE(gift.gift_remaining, 0) AS gift_remaining,
+--    COALESCE(print_CTE.print_remaining, 0) AS print_remaining, 
+--	COALESCE(supply.supply_remaining, 0) AS supply_remaining, 
+--	COALESCE(salary.salary_remaining, 0) AS salary_remaining, 
+--	COALESCE(travel.travel_remaining, 0) AS travel_remaining,
+--	(
+--        COALESCE(fee.fee_remaining, 0) +
+--        COALESCE(gift.gift_remaining, 0) +
+--        COALESCE(print_CTE.print_remaining, 0) +
+--        COALESCE(supply.supply_remaining, 0) +
+--        COALESCE(salary.salary_remaining, 0) +
+--        COALESCE(travel.travel_remaining, 0)
+--    ) AS total_remaining
+--FROM fee_CTE AS fee
+--	FULL OUTER JOIN gift_CTE AS gift ON
+--		fee.budget_id = gift.budget_id
+--	FULL OUTER JOIN print_CTE ON 
+--		fee.budget_id = print_CTE.budget_id
+--	FULL OUTER JOIN supply_CTE AS supply ON
+--		fee.budget_id = supply.budget_id
+--	FULL OUTER JOIN salary_CTE AS salary ON
+--		fee.budget_id = salary.budget_id
+--	FULL OUTER JOIN travel_CTE AS travel ON
+--		fee.budget_id = travel.budget_id
+
+--CREATE VIEW current_fees_deposits_view
+--AS
+--SELECT 'FEE' AS category, fee.fee_id, NULL AS deposit_id, fee.cntrl_num, fee.budget_id, fee.fee_cost AS amount, fee.spend_date, NULL AS deposit_date, fee.notes, fee.updated_on
+--FROM fee_costs fee 
+--	INNER JOIN current_budget_view cbv ON
+--		cbv.budget_id = fee.budget_id
+--UNION ALL
+--SELECT 'DEPOSIT' AS category, NULL AS fee_id, dep.deposit_id, dep.cntrl_num, dep.budget_id, dep.deposit_amount AS amount, NULL AS spend_date, dep.deposit_date, dep.notes, dep.updated_on
+--FROM add_deposits dep
+--	INNER JOIN current_budget_view cbv ON
+--		cbv.budget_id = dep.budget_id
+
+--CREATE VIEW salary_costs_view
+--AS
+---- BASE SALARY WITH NOT NULL BUDGETS
+--SELECT salary_costs.salary_cost_id AS salary_id, 'BASE' AS salary_type,
+--CASE WHEN 
+--	MONTH(salary_costs.salary_start_date) > 9
+--	THEN YEAR(salary_costs.salary_start_date) + 1
+--	ELSE YEAR(salary_costs.salary_start_date)
+--	END
+--	AS fy,
+--salary_costs.budget_id, current_budget_view.budget_name, salary_costs.cntrl_num, 
+--salary_costs.tour_id, 
+--CASE WHEN 
+--	salary_costs.tour_id IS NULL 
+--	THEN salary_costs.last_name 
+--	ELSE pers.last_name 
+--	END 
+--	AS last_name, 
+--CASE WHEN 
+--	salary_costs.tour_id IS NULL 
+--	THEN salary_costs.first_name 
+--	ELSE pers.first_name 
+--	END 
+--	AS first_name, 
+--CASE WHEN 
+--	salary_costs.tour_id IS NULL 
+--	THEN CONCAT(salary_costs.last_name, ', ', salary_costs.first_name) 
+--	ELSE CONCAT(pers.last_name, ', ', pers.first_name) 
+--	END 
+--	AS name, 
+--CASE WHEN
+--	salary_costs.tour_id IS NOT NULL 
+--	THEN wp_email
+--	ELSE NULL
+--	END
+--	AS email,
+--dbo.salary_costs.step, 
+--SUM(pay_period_costs.projected_amount) AS projected_salary, 
+--SUM(pay_period_costs.disbursed_amount) AS disbursed_salary, 
+--salary_costs.salary_complete, salary_costs.salary_start_date, salary_costs.salary_end_date, salary_costs.updated_on
+--FROM salary_costs 
+--	INNER JOIN current_budget_view ON 
+--		salary_costs.budget_id = current_budget_view.budget_id
+--	LEFT OUTER JOIN tours ON 
+--		tours.tour_id = salary_costs.tour_id 
+--	LEFT OUTER JOIN faculty ON 
+--		faculty.usma_pers_id = tours.usma_pers_id 
+--	LEFT OUTER JOIN personnel AS pers ON 
+--		pers.usma_pers_id = faculty.usma_pers_id 
+--	LEFT JOIN pay_period_costs ON 
+--		pay_period_costs.salary_cost_id = salary_costs.salary_cost_id
+--GROUP BY salary_costs.salary_cost_id, salary_costs.budget_id, current_budget_view.budget_name, salary_costs.cntrl_num, 
+--	salary_costs.tour_id, salary_costs.last_name, salary_costs.first_name, pers.last_name, pers.first_name, pers.wp_email, 
+--	salary_costs.step, salary_costs.salary_complete, salary_costs.salary_start_date, salary_costs.salary_end_date, 
+--	salary_costs.updated_on
+--UNION ALL
+---- BASE SALARY WITH NULL BUDGETS
+--SELECT salary_costs.salary_cost_id AS salary_id, 'BASE' AS salary_type,
+--CASE WHEN 
+--	MONTH(salary_costs.salary_start_date) > 9
+--	THEN YEAR(salary_costs.salary_start_date) + 1
+--	ELSE YEAR(salary_costs.salary_start_date)
+--	END
+--	AS fy,
+--salary_costs.budget_id, current_budget_view.budget_name, salary_costs.cntrl_num, 
+--salary_costs.tour_id, 
+--CASE WHEN 
+--	salary_costs.tour_id IS NULL 
+--	THEN salary_costs.last_name 
+--	ELSE pers.last_name 
+--	END 
+--	AS last_name, 
+--CASE WHEN 
+--	salary_costs.tour_id IS NULL 
+--	THEN salary_costs.first_name 
+--	ELSE pers.first_name 
+--	END 
+--	AS first_name, 
+--CASE WHEN 
+--	salary_costs.tour_id IS NULL 
+--	THEN CONCAT(salary_costs.last_name, ', ', salary_costs.first_name) 
+--	ELSE CONCAT(pers.last_name, ', ', pers.first_name) 
+--	END 
+--	AS name, 
+--CASE WHEN
+--	salary_costs.tour_id IS NOT NULL 
+--	THEN wp_email
+--	ELSE NULL
+--	END
+--	AS email,
+--dbo.salary_costs.step, 
+--SUM(pay_period_costs.projected_amount) AS projected_salary, 
+--SUM(pay_period_costs.disbursed_amount) AS disbursed_salary, 
+--salary_costs.salary_complete, salary_costs.salary_start_date, salary_costs.salary_end_date, salary_costs.updated_on
+--FROM salary_costs 
+--	LEFT JOIN current_budget_view ON 
+--		salary_costs.budget_id = current_budget_view.budget_id
+--	LEFT OUTER JOIN tours ON 
+--		tours.tour_id = salary_costs.tour_id 
+--	LEFT OUTER JOIN faculty ON 
+--		faculty.usma_pers_id = tours.usma_pers_id 
+--	LEFT OUTER JOIN personnel AS pers ON 
+--		pers.usma_pers_id = faculty.usma_pers_id 
+--	LEFT JOIN pay_period_costs ON 
+--		pay_period_costs.salary_cost_id = salary_costs.salary_cost_id
+--WHERE salary_costs.budget_id IS NULL
+--GROUP BY salary_costs.salary_cost_id, salary_costs.budget_id, current_budget_view.budget_name, salary_costs.cntrl_num, 
+--	salary_costs.tour_id, salary_costs.last_name, salary_costs.first_name, pers.last_name, pers.first_name, pers.wp_email, 
+--	salary_costs.step, salary_costs.salary_complete, salary_costs.salary_start_date, salary_costs.salary_end_date, 
+--	salary_costs.updated_on
+--UNION ALL
+----ADDITIONAL SALARY WITH NOT NULL BUDGETS
+--SELECT add_salary_id AS salary_id, 'ADDITIONAL' AS salary_type,
+--CASE WHEN 
+--	MONTH(spend_date) > 9
+--	THEN YEAR(spend_date) + 1
+--	ELSE YEAR(spend_date)
+--	END
+--	AS fy,
+--add_salary_costs.budget_id, current_budget_view.budget_name, add_salary_costs.cntrl_num, 
+--add_salary_costs.tour_id, last_name, first_name, CONCAT(last_name, ', ', first_name) AS name, wp_email, purpose AS step,
+--projected_amount AS projected_salary, disbursed_amount AS disbursed_salary, 
+--CASE WHEN
+--	ISNULL(disbursed_amount, 0) = 0
+--	THEN 'NO'
+--	ELSE 'YES'
+--	END
+--	AS salary_complete,
+--spend_date AS salary_start_date, spend_date AS salary_end_date, add_salary_costs.updated_on
+--FROM add_salary_costs 
+--	INNER JOIN current_budget_view ON 
+--		current_budget_view.budget_id = add_salary_costs.budget_id 
+--	LEFT OUTER JOIN tours ON 
+--		tours.tour_id = add_salary_costs.tour_id 
+--	LEFT OUTER JOIN faculty ON 
+--		faculty.usma_pers_id = tours.usma_pers_id 
+--	LEFT OUTER JOIN personnel AS pers ON 
+--		pers.usma_pers_id = faculty.usma_pers_id 
+--UNION ALL
+----ADDITIONAL SALARY WITH NULL BUDGETS
+--SELECT add_salary_id AS salary_id, 'ADDITIONAL' AS salary_type,
+--CASE WHEN 
+--	MONTH(spend_date) > 9
+--	THEN YEAR(spend_date) + 1
+--	ELSE YEAR(spend_date)
+--	END
+--	AS fy,
+--add_salary_costs.budget_id, current_budget_view.budget_name, add_salary_costs.cntrl_num, 
+--add_salary_costs.tour_id, last_name, first_name, CONCAT(last_name, ', ', first_name) AS name, wp_email, purpose AS step,
+--projected_amount AS projected_salary, disbursed_amount AS disbursed_salary, 
+--CASE WHEN
+--	ISNULL(disbursed_amount, 0) = 0
+--	THEN 'NO'
+--	ELSE 'YES'
+--	END
+--	AS salary_complete,
+--spend_date AS salary_start_date, spend_date AS salary_end_date, add_salary_costs.updated_on
+--FROM add_salary_costs 
+--	LEFT JOIN current_budget_view ON 
+--		current_budget_view.budget_id = add_salary_costs.budget_id 
+--	LEFT OUTER JOIN tours ON 
+--		tours.tour_id = add_salary_costs.tour_id 
+--	LEFT OUTER JOIN faculty ON 
+--		faculty.usma_pers_id = tours.usma_pers_id 
+--	LEFT OUTER JOIN personnel AS pers ON 
+--		pers.usma_pers_id = faculty.usma_pers_id
+--WHERE add_salary_costs.budget_id IS NULL
+
+--CREATE VIEW add_salary_view
+--AS
+--SELECT add_salary_id AS salary_id, 'ADDITIONAL' AS salary_type,
+--CASE WHEN 
+--	MONTH(spend_date) > 9
+--	THEN YEAR(spend_date) + 1
+--	ELSE YEAR(spend_date)
+--	END
+--	AS fy,
+--add_salary_costs.budget_id, current_budget_view.budget_name, add_salary_costs.cntrl_num, 
+--add_salary_costs.tour_id, last_name, first_name, CONCAT(last_name, ', ', first_name) AS name, purpose AS step,
+--projected_amount AS projected_salary, disbursed_amount AS disbursed_salary, 
+--CASE WHEN
+--	ISNULL(disbursed_amount, 0) = 0
+--	THEN 'NO'
+--	ELSE 'YES'
+--	END
+--	AS salary_complete,
+--spend_date AS salary_start_date, spend_date AS salary_end_date, add_salary_costs.updated_on
+--FROM add_salary_costs 
+--	INNER JOIN current_budget_view ON 
+--		current_budget_view.budget_id = add_salary_costs.budget_id 
+--	LEFT OUTER JOIN tours ON 
+--		tours.tour_id = add_salary_costs.tour_id 
+--	LEFT OUTER JOIN faculty ON 
+--		faculty.usma_pers_id = tours.usma_pers_id 
+--	LEFT OUTER JOIN personnel AS pers ON 
+--		pers.usma_pers_id = faculty.usma_pers_id 
+
+--CREATE VIEW salary_notes_view
+--AS
+--SELECT salary_note_id, salary_cost_notes.salary_cost_id, notes, salary_cost_notes.tour_id AS created_tour, current_fac_view.name AS created_name, 
+--salary_costs.tour_id AS fac_tour, 
+--CASE WHEN
+--	salary_costs.last_name IS NULL
+--	THEN pers.last_name
+--	ELSE salary_costs.last_name
+--	END
+--	AS fac_last_name,
+--CASE WHEN
+--	salary_costs.first_name IS NULL
+--	THEN pers.first_name
+--	ELSE salary_costs.first_name
+--	END
+--	AS fac_first_name,
+--salary_cost_notes.updated_on
+--FROM salary_cost_notes
+--	INNER JOIN current_fac_view ON
+--		current_fac_view.tour_id = salary_cost_notes.tour_id
+--	INNER JOIN salary_costs ON
+--		salary_costs.salary_cost_id = salary_cost_notes.salary_cost_id
+--	INNER JOIN tours ON 
+--		salary_cost_notes.tour_id = tours.tour_id
+--	INNER JOIN FACULTY ON
+--		faculty.usma_pers_id = tours.usma_pers_id
+--	INNER JOIN personnel AS pers ON
+--		pers.usma_pers_id = faculty.usma_pers_id
+
+--CREATE VIEW pay_period_view
+--AS
+--SELECT pay_period_id, 
+--CASE WHEN 
+--	MONTH(start_date) > 9 
+--	THEN YEAR(start_date) + 1
+--	ELSE YEAR(start_date)
+--	END
+--	AS fy,
+--pay_period, start_date, end_date
+--FROM lookup_pay_periods
+
+--CREATE VIEW pay_period_cost_view
+--AS
+--SELECT distinct_pp.salary_id, distinct_pp.fy, distinct_pp.budget_id, distinct_pp.budget_name, distinct_pp.cntrl_num, 
+--distinct_pp.tour_id, distinct_pp.last_name, distinct_pp.first_name, distinct_pp.name, distinct_pp.step, distinct_pp.pay_period, 
+--projected_amount, disbursed_amount, pay_period_cost_id,
+--CASE WHEN 
+--	pay_period_id IS NULL
+--	THEN (SELECT pay_period_id FROM pay_period_view AS ppv2 WHERE ppv2.pay_period = distinct_pp.pay_period AND ppv2.fy = distinct_pp.fy)
+--	ELSE pay_period_id
+--	END
+--	AS pay_period_id,
+--CASE WHEN 
+--	ppcv.start_date IS NULL
+--	THEN (SELECT start_date FROM pay_period_view AS ppv3 WHERE ppv3.pay_period = distinct_pp.pay_period AND ppv3.fy = distinct_pp.fy)
+--	ELSE ppcv.start_date
+--	END
+--	AS start_date,
+--CASE WHEN 
+--	ppcv.end_date IS NULL
+--	THEN (SELECT end_date FROM pay_period_view AS ppv4 WHERE ppv4.pay_period = distinct_pp.pay_period AND ppv4.fy = distinct_pp.fy)
+--	ELSE ppcv.end_date
+--	END
+--	AS end_date
+--FROM
+--(SELECT * FROM salary_costs_view
+--	CROSS JOIN (SELECT DISTINCT(pay_period) FROM lookup_pay_periods) AS pp WHERE salary_type = 'BASE') AS distinct_pp
+--	LEFT JOIN 
+--		(SELECT pay_period_cost_id, 
+--			pay_period_costs.salary_cost_id, pay_period_costs.pay_period_id, ppv.pay_period, 
+--			projected_amount, disbursed_amount, ppv.start_date, ppv.end_date, salary_type
+--			FROM pay_period_costs
+--				FULL OUTER JOIN pay_period_view AS ppv ON 
+--					ppv.pay_period_id = pay_period_costs.pay_period_id 
+--				FULL OUTER JOIN salary_costs_view ON
+--					salary_costs_view.salary_id = pay_period_costs.salary_cost_id
+--			WHERE salary_type = 'BASE') AS ppcv ON
+--		ppcv.salary_cost_id = distinct_pp.salary_id AND
+--		ppcv.pay_period = distinct_pp.pay_period
+
+--CREATE VIEW purchase_cost_view
+--AS
+---- PURCHASE COSTS WITH NON NULL BUDGET
+--SELECT purchase_cost_id, cntrl_num, purchase_costs.budget_id, budget_name, budget_assigned_by, invoice_num, purpose, vendor_name, 
+--ISNULL(items_cost, 0) AS items_cost, ISNULL(shipping_cost, 0) AS shipping_cost, 
+--ISNULL(purchase_cost, 0) AS purchase_cost, 
+--(SELECT COUNT(*) FROM purchase_items WHERE purchase_items.purchase_cost_id = purchase_costs.purchase_cost_id) AS num_items,
+--purchase_category, purchase_type, purchase_cost_status, date_ordered, gfebs_pr_num, cardholder, 
+--ch_per.last_name AS cardholder_last_name, ch_per.first_name AS cardholder_first_name,
+--CASE WHEN ch_per.last_name IS NOT NULL THEN
+--	CONCAT(ch_per.last_name, ', ', ch_per.first_name)
+--	ELSE NULL
+--	END
+--	AS cardholder_name, ch_per.wp_email AS cardholder_email,
+--date_received, certified_fund_date, 
+--requestor_tour, req_per.last_name AS requestor_last_name, req_per.first_name AS requestor_first_name, 
+--CASE WHEN req_per.last_name IS NOT NULL THEN 
+--	CONCAT(req_per.last_name, ', ', req_per.first_name) 
+--	ELSE NULL
+--	END
+--	AS requestor_name, req_per.wp_email AS requestor_email,
+--recipient_tour, rec_per.last_name AS recipient_last_name, rec_per.first_name AS recipient_first_name, 
+--CASE WHEN rec_per.last_name IS NOT NULL THEN
+--	CONCAT(rec_per.last_name, ', ', rec_per.first_name) 
+--	ELSE NULL
+--	END
+--	AS recipient_name, rec_per.wp_email AS recipient_email, purchase_costs.updated_on 
+--FROM purchase_costs
+--	INNER JOIN current_budget_view ON
+--		current_budget_view.budget_id = purchase_costs.budget_id
+--	LEFT JOIN tours AS req_tour ON
+--		req_tour.tour_id = purchase_costs.requestor_tour
+--	LEFT JOIN personnel AS req_per ON
+--		req_per.usma_pers_id = req_tour.usma_pers_id
+--	LEFT JOIN tours AS rec_tour ON
+--		rec_tour.tour_id = purchase_costs.recipient_tour
+--	LEFT JOIN personnel AS rec_per ON
+--		rec_per.usma_pers_id = rec_tour.usma_pers_id
+--	LEFT JOIN tours AS ch_tour ON
+--		ch_tour.tour_id = purchase_costs.cardholder
+--	LEFT JOIN personnel AS ch_per ON
+--		ch_per.usma_pers_id = ch_tour.usma_pers_id
+--WHERE purchase_costs.budget_id IS NOT NULL
+--UNION ALL
+---- PURCHASE COSTS WITH NULL BUDGET
+--SELECT purchase_cost_id, cntrl_num, purchase_costs.budget_id, budget_name, budget_assigned_by, invoice_num, purpose, vendor_name, 
+--ISNULL(items_cost, 0) AS items_cost, ISNULL(shipping_cost, 0) AS shipping_cost, 
+--ISNULL(purchase_cost, 0) AS purchase_cost, 
+--(SELECT COUNT(*) FROM purchase_items WHERE purchase_items.purchase_cost_id = purchase_costs.purchase_cost_id) AS num_items,
+--purchase_category, purchase_type, purchase_cost_status, date_ordered, gfebs_pr_num, cardholder, 
+--ch_per.last_name AS cardholder_last_name, ch_per.first_name AS cardholder_first_name,
+--CASE WHEN ch_per.last_name IS NOT NULL THEN
+--	CONCAT(ch_per.last_name, ', ', ch_per.first_name)
+--	ELSE NULL
+--	END
+--	AS cardholder_name, ch_per.wp_email AS cardholder_email,
+--date_received, certified_fund_date, 
+--requestor_tour, req_per.last_name AS requestor_last_name, req_per.first_name AS requestor_first_name, 
+--CASE WHEN req_per.last_name IS NOT NULL THEN 
+--	CONCAT(req_per.last_name, ', ', req_per.first_name) 
+--	ELSE NULL
+--	END
+--	AS requestor_name, req_per.wp_email AS requestor_email,
+--recipient_tour, rec_per.last_name AS recipient_last_name, rec_per.first_name AS recipient_first_name, 
+--CASE WHEN rec_per.last_name IS NOT NULL THEN
+--	CONCAT(rec_per.last_name, ', ', rec_per.first_name) 
+--	ELSE NULL
+--	END
+--	AS recipient_name, rec_per.wp_email AS recipient_email, purchase_costs.updated_on 
+--FROM purchase_costs
+--	LEFT JOIN current_budget_view ON
+--		current_budget_view.budget_id = purchase_costs.budget_id
+--	LEFT JOIN tours AS req_tour ON
+--		req_tour.tour_id = purchase_costs.requestor_tour
+--	LEFT JOIN personnel AS req_per ON
+--		req_per.usma_pers_id = req_tour.usma_pers_id
+--	LEFT JOIN tours AS rec_tour ON
+--		rec_tour.tour_id = purchase_costs.recipient_tour
+--	LEFT JOIN personnel AS rec_per ON
+--		rec_per.usma_pers_id = rec_tour.usma_pers_id
+--	LEFT JOIN tours AS ch_tour ON
+--		ch_tour.tour_id = purchase_costs.cardholder
+--	LEFT JOIN personnel AS ch_per ON
+--		ch_per.usma_pers_id = ch_tour.usma_pers_id
+--WHERE purchase_costs.budget_id IS NULL
+
+--CREATE VIEW purchase_notes_view
+--AS
+--SELECT purchase_note_id, purchase_cost_notes.purchase_cost_id, notes, purchase_cost_notes.tour_id, 
+--CONCAT(last_name, ', ', first_name) AS name, purchase_cost_notes.updated_on
+--FROM purchase_cost_notes
+--	INNER JOIN purchase_cost_view ON
+--		purchase_cost_view.purchase_cost_id = purchase_cost_notes.purchase_cost_id
+--	INNER JOIN tours ON
+--		tours.tour_id = purchase_cost_notes.tour_id
+--	INNER JOIN personnel ON
+--		personnel.usma_pers_id = tours.usma_pers_id
+
+--CREATE VIEW current_travel_view
+--AS
+---- TRAVEL COST WITH NOT NULL BUDGET
+--SELECT lookup_trips.trip_id, trip_type, trip_event, trip_start, trip_end, trip_oic, oic.last_name AS oic_last_name, 
+--oic.first_name AS oic_first_name, CONCAT(oic.last_name, ', ', oic.first_name) AS oic_name, oic.wp_email AS oic_email,
+--purpose, trip_summary, destination_city, destination_state, destination_country, 
+--CONCAT(destination_city, ', ', destination_state, ', ', destination_country) AS destination, travel_cost_id AS travel_id, cntrl_num, 
+--travel_costs.usma_pers_id, 
+--CASE WHEN travel_costs.last_name IS NOT NULL THEN
+--	travel_costs.last_name
+--	ELSE traveler.last_name 
+--	END
+--	AS traveler_last_name,
+--CASE WHEN travel_costs.first_name IS NOT NULL THEN
+--	travel_costs.first_name
+--	ELSE traveler.first_name 
+--	END
+--	AS traveler_first_name,
+--CASE WHEN travel_costs.last_name IS NOT NULL THEN
+--	CONCAT(travel_costs.last_name, ', ', travel_costs.first_name)
+--	ELSE CONCAT(traveler.last_name, ', ', traveler.first_name)
+--	END
+--	AS traveler_name,
+--CASE WHEN travel_costs.email IS NOT NULL THEN
+--	travel_costs.email
+--	ELSE traveler.wp_email 
+--	END
+--	AS traveler_email,
+--travel_costs.pers_type, travel_costs.budget_id, budget_name, loa, split_loa, budget_assigned_by, meal_cost, lodging_cost, rental_cost, 
+--pov_cost, airfare_cost, other_cost, cost_desc, travel_cost_committed, travel_cost_disbursed, travel_cost_status, voucher_submitted_on, 
+--voucher_approved_on, travel_start, travel_end, travel_doc_num, missing_class, gik_submitted, gik_approved, dean_submitted, dean_approved, 
+--pd_tour, pd_approved_on, cd_tour, cd_approved_on, xo_tour, xo_approved_on, p6_tour, p6_approved_on, trip_status
+--FROM lookup_trips
+--	LEFT JOIN travel_costs ON
+--		travel_costs.trip_id = lookup_trips.trip_id
+--	LEFT JOIN personnel ON
+--		personnel.usma_pers_id = travel_costs.usma_pers_id
+--	INNER JOIN current_budget_view ON
+--		current_budget_view.budget_id = travel_costs.budget_id
+--	LEFT JOIN tours ON
+--		tours.tour_id = trip_oic
+--	LEFT JOIN faculty ON
+--		faculty.usma_pers_id = tours.usma_pers_id
+--	LEFT JOIN personnel AS oic ON
+--		oic.usma_pers_id = faculty.usma_pers_id
+--	LEFT JOIN personnel AS traveler ON
+--		traveler.usma_pers_id = travel_costs.usma_pers_id
+--WHERE (DATEDIFF(MONTH, ISNULL(voucher_approved_on, GETDATE()), GETDATE()) <=3 AND travel_costs.budget_id IS NOT NULL)
+--UNION ALL
+----TRAVEL COST WITH NULL BUDGET
+--SELECT lookup_trips.trip_id, trip_type, trip_event, trip_start, trip_end, trip_oic, oic.last_name AS oic_last_name, 
+--oic.first_name AS oic_first_name, CONCAT(oic.last_name, ', ', oic.first_name) AS oic_name, oic.wp_email AS oic_email,
+--purpose, trip_summary, destination_city, destination_state, destination_country, 
+--CONCAT(destination_city, ', ', destination_state, ', ', destination_country) AS destination, travel_cost_id AS travel_id, cntrl_num, 
+--travel_costs.usma_pers_id, 
+--CASE WHEN travel_costs.last_name IS NOT NULL THEN
+--	travel_costs.last_name
+--	ELSE traveler.last_name 
+--	END
+--	AS traveler_last_name,
+--CASE WHEN travel_costs.first_name IS NOT NULL THEN
+--	travel_costs.first_name
+--	ELSE traveler.first_name 
+--	END
+--	AS traveler_first_name,
+--CASE WHEN travel_costs.last_name IS NOT NULL THEN
+--	CONCAT(travel_costs.last_name, ', ', travel_costs.first_name)
+--	ELSE CONCAT(traveler.last_name, ', ', traveler.first_name)
+--	END
+--	AS traveler_name,
+--CASE WHEN travel_costs.email IS NOT NULL THEN
+--	travel_costs.email
+--	ELSE traveler.wp_email 
+--	END
+--	AS traveler_email,
+--travel_costs.pers_type, travel_costs.budget_id, budget_name, loa, split_loa, budget_assigned_by, meal_cost, lodging_cost, rental_cost, 
+--pov_cost, airfare_cost, other_cost, cost_desc, travel_cost_committed, travel_cost_disbursed, travel_cost_status, voucher_submitted_on, 
+--voucher_approved_on, travel_start, travel_end, travel_doc_num, missing_class, gik_submitted, gik_approved, dean_submitted, dean_approved, 
+--pd_tour, pd_approved_on, cd_tour, cd_approved_on, xo_tour, xo_approved_on, p6_tour, p6_approved_on, trip_status
+--FROM lookup_trips
+--	LEFT JOIN travel_costs ON
+--		travel_costs.trip_id = lookup_trips.trip_id
+--	LEFT JOIN personnel ON
+--		personnel.usma_pers_id = travel_costs.usma_pers_id
+--	LEFT JOIN budgets ON
+--		budgets.budget_id = travel_costs.budget_id
+--	LEFT JOIN tours ON
+--		tours.tour_id = trip_oic
+--	LEFT JOIN faculty ON
+--		faculty.usma_pers_id = tours.usma_pers_id
+--	LEFT JOIN personnel AS oic ON
+--		oic.usma_pers_id = faculty.usma_pers_id
+--	LEFT JOIN personnel AS traveler ON
+--		traveler.usma_pers_id = travel_costs.usma_pers_id
+--WHERE (DATEDIFF(MONTH, ISNULL(voucher_approved_on, GETDATE()), GETDATE()) <=3 AND travel_costs.budget_id IS NULL)
+
+--CREATE VIEW current_trips_view
+--AS
+--SELECT trip_id, 
+--	trip_type,
+--	trip_event, trip_start, trip_end, trip_oic, oic_last_name, oic_first_name, oic_name, oic_email, purpose, trip_summary, destination_city,
+--	destination_state, destination_country, destination, gik_submitted, gik_approved, dean_submitted, dean_approved,
+--	COUNT(DISTINCT
+--		CASE WHEN pers_type = 'CADET' THEN usma_pers_id
+--		END) AS num_cadets,
+--	COUNT(DISTINCT
+--		CASE WHEN pers_type = 'FACULTY' THEN usma_pers_id
+--		END) AS num_fac,
+--	COUNT(DISTINCT
+--		CASE WHEN pers_type = 'GUEST' THEN travel_id
+--		END) AS num_guests,
+--	SUM(travel_cost_committed) AS cost,
+--	xo_approved_on,
+--	p6_approved_on, 
+--	trip_status
+--FROM current_travel_view
+--GROUP BY trip_id, trip_type, trip_event, trip_start, trip_end, trip_oic, oic_last_name, oic_first_name, oic_name, oic_email, purpose, 
+--trip_summary, destination_city, destination_state, destination_country, destination, gik_submitted, gik_approved, dean_submitted, 
+--dean_approved, xo_approved_on, p6_approved_on, trip_status;
+
+--CREATE VIEW travel_notes_view
+--AS
+--SELECT travel_note_id, trip_id, travel_cost_id, notes, travel_notes.tour_id, name, updated_on
+--FROM travel_notes
+--	INNER JOIN current_travel_view ON
+--		current_travel_view.travel_id = travel_notes.travel_cost_id
+--	INNER JOIN current_fac_view ON
+--		current_fac_view.tour_id = travel_notes.tour_id
+
+--CREATE VIEW add_locs_view
+--AS
+--SELECT add_loc_id, add_locs.travel_cost_id, trip_id, traveler_last_name, traveler_first_name, traveler_name,
+--leg_start, leg_end, add_locs.destination_city, add_locs.destination_state, add_locs.destination_country
+
+--FROM add_locs
+--	INNER JOIN current_travel_view ON
+--		current_travel_view.travel_id = add_locs.travel_cost_id
+
+--CREATE VIEW missed_classes_travel_view
+--AS
+--SELECT missed_class_id, classes_missed_travel.section_id, missed_date, classes_missed_travel.trip_id, travel_cost_id, 
+--CONCAT(instructor.last_name, ', ', instructor.first_name) AS instructor, instructor.tour_id AS instructor_tour, 
+--instructor.wp_email AS instructor_email,
+--covering_fac AS covering_fac_tour, cov.wp_email AS covering_fac_email, class_num, class_room, class_hour, 
+--(CASE WHEN
+--	cov.last_name IS NULL THEN NULL
+--	ELSE
+--	CONCAT(cov.last_name, ', ', cov.first_name)
+--	END)
+--	AS covering_fac_name,
+--apd, APD.tour_id AS apd_tour, APD.wp_email AS apd_email, CONCAT(cfv.last_name, ', ', cfv.first_name) AS apd_name, approved_on
+--FROM classes_missed_travel
+--	INNER JOIN sections ON
+--		sections.section_id = classes_missed_travel.section_id
+--	INNER JOIN lookup_class_offerings ON
+--		lookup_class_offerings.offering_id = sections.offering_id
+--	INNER JOIN current_trips_view ON
+--		current_trips_view.trip_id = classes_missed_travel.trip_id
+--	INNER JOIN program_pos ON
+--		program_pos.program_pos_id = lookup_class_offerings.apd
+--	INNER JOIN current_fac_view AS cfv ON
+--		cfv.tour_id = program_pos.tour_id
+--	LEFT JOIN current_fac_view AS cov ON
+--		cov.tour_id = covering_fac
+--	INNER JOIN current_fac_view AS instructor ON
+--		instructor.tour_id = sections.tour_id
+--	INNER JOIN current_fac_view AS APD ON
+--		APD.program_pos_id = apd
+
+--CREATE VIEW current_permissions_view
+--AS
+--SELECT permission_id, permissions_master.wp_email, name, 'MASTER' AS permission
+--FROM permissions_master
+--INNER JOIN current_fac_view ON
+--	current_fac_view.wp_email = permissions_master.wp_email
+--UNION ALL
+--SELECT permission_id, permissions_S1.wp_email, name, 'S1' AS permission
+--FROM permissions_S1
+--INNER JOIN current_fac_view ON
+--	current_fac_view.wp_email = permissions_S1.wp_email
+--UNION ALL
+--SELECT permission_id, permissions_admin.wp_email, name, 'ADMIN' AS permission
+--FROM permissions_admin
+--INNER JOIN current_fac_view ON
+--	current_fac_view.wp_email = permissions_admin.wp_email
+--UNION ALL
+--SELECT permission_id, permissions_research.wp_email, name, 'RESEARCH' AS permission
+--FROM permissions_research
+--INNER JOIN current_fac_view ON
+--	current_fac_view.wp_email = permissions_research.wp_email
