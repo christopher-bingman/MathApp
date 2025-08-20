@@ -446,14 +446,6 @@
 --FOREIGN KEY (spon_collab_id) REFERENCES lookup_sponsors_collaborators (spon_collab_id),
 --FOREIGN KEY (project_id) REFERENCES projects (project_id));
 
---CREATE TABLE project_sponsors (
---project_sponsor_id INT IDENTITY(1,1) PRIMARY KEY,
---spon_collab_id SMALLINT NOT NULL,
---project_id INT NOT NULL,
---UNIQUE(spon_collab_id, project_id),
---FOREIGN KEY (spon_collab_id) REFERENCES lookup_sponsors_collaborators (spon_collab_id),
---FOREIGN KEY (project_id) REFERENCES projects (project_id));
-
 --CREATE TABLE lookup_budget_type(
 --budget_type VARCHAR(255) PRIMARY KEY);
 
