@@ -82,14 +82,18 @@
 
 --CREATE VIEW add_duty_view
 --AS
---SELECT tour_id, committee_name, add_duty FROM additional_duty
---INNER JOIN lookup_committee ON
---	lookup_committee.committee_id = additional_duty.committee_id
+--SELECT ad.tour_id, committee_name, add_duty FROM additional_duty ad
+--INNER JOIN current_fac_view cfv ON
+--	cfv.tour_id = ad.tour_id
+--INNER JOIN lookup_committee lc ON
+--	lc.committee_id = ad.committee_id
 
 --CREATE VIEW course_pos_view
 --AS
---SELECT tour_id, class_num, pos_title FROM course_pos
---GROUP BY tour_id, class_num, pos_title
+--SELECT cp.tour_id, class_num, cp.pos_title FROM course_pos cp
+--INNER JOIN current_fac_view cfv ON 
+--	cfv.tour_id = cp.tour_id
+--GROUP BY cp.tour_id, class_num, cp.pos_title
 
 --CREATE VIEW current_cadet_view
 --AS
@@ -183,7 +187,6 @@
 
 --CREATE VIEW project_tags_view
 --AS
-
 --SELECT current_projects_view.project_id, project_tags.topic_method_id, topic_method, tag_id 
 --FROM project_tags
 --	INNER JOIN lookup_topic_methods ON
@@ -215,7 +218,7 @@
 --	INNER JOIN (SELECT project_cadet_id, project_id, cdt_last_name FROM current_projects_view 
 --				GROUP BY project_cadet_id, project_id, cdt_last_name) AS current_projects ON
 --		current_projects.project_cadet_id = publications.project_cadet_id
-
+SELECT * FROM project_collab_org_view
 --CREATE VIEW project_collab_org_view
 --AS
 --SELECT DISTINCT(current_projects_view.project_id), 
@@ -1057,7 +1060,7 @@
 --	AS fy,
 --pay_period, start_date, end_date
 --FROM lookup_pay_periods
-
+SELECT * FROM pay_period_cost_view
 --CREATE VIEW pay_period_cost_view
 --AS
 --SELECT distinct_pp.salary_id, distinct_pp.fy, distinct_pp.budget_id, distinct_pp.budget_name, distinct_pp.cntrl_num, 

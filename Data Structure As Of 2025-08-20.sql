@@ -693,6 +693,7 @@
 --UNIQUE (trip_event, trip_start, destination_city),
 --FOREIGN KEY(trip_type) REFERENCES lookup_trip_type(trip_type),
 --FOREIGN KEY (trip_OIC) REFERENCES tours (tour_id));
+
 --CREATE TABLE travel_costs (
 --travel_cost_id INT IDENTITY(1,1) PRIMARY KEY,
 --cntrl_num VARCHAR(255),
